@@ -1,0 +1,183 @@
+body {
+  font-family: 'Noto Sans JP', sans-serif;
+  background: linear-gradient(135deg, #ffe0f0, #ffb3e6);
+  text-align: center;
+  color: #333;
+  padding: 0;
+  margin: 0;
+}
+
+#quiz-container {
+  max-width: 750px;
+  margin: 30px auto;
+  background-color: #fff8fb;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 10px rgba(255, 105, 180, 0.5);
+}
+
+h1 {
+  font-family: 'Kaisei Decol', serif;
+  color: #ff66b2;
+  margin-bottom: 20px;
+  text-shadow: 1px 1px 5px #ff99cc;
+}
+
+button {
+  background-color: #ff80bf;
+  border: none;
+  color: white;
+  padding: 12px 20px;
+  margin: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1em;
+  box-shadow: 0 2px 6px rgba(255, 105, 180, 0.6);
+  transition: transform 0.1s;
+}
+
+button:hover {
+  background-color: #ff59ac;
+  transform: scale(1.05);
+}
+
+.choice {
+  width: 90%;
+  margin: 8px auto;
+  display: block;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+.choice:focus,
+.choice:active {
+  outline: none;
+}
+
+#timer {
+  font-size: 1.2em;
+  color: #ff3399;
+  margin: 10px 0;
+}
+
+.result-item {
+  margin: 6px 0;
+  font-size: 0.95em;
+}
+
+.result-item .mark {
+  font-size: 1.5em;
+}
+
+/* 詳細結果表示のスタイル */
+.result-detail {
+  margin: 10px 0;
+  padding: 10px;
+  border-bottom: 1px solid #ff80bf;
+  text-align: left;
+}
+
+.result-heading {
+  font-size: 1.1em;
+  font-weight: bold;
+  color: #ff3366;
+  margin-bottom: 5px;
+  font-family: 'Kaisei Decol', serif;
+}
+
+.result-summary {
+  font-size: 1em;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.result-line {
+  font-size: 0.95em;
+  color: #666;
+}
+
+.result-icon {
+  font-weight: bold;
+}
+
+.correct {
+  color: #33cc33;
+}
+
+.incorrect {
+  color: #ff3333;
+}
+
+.hidden {
+  display: none;
+}
+
+/* フッターのスタイル */
+#pageFooter {
+  background-color: #ffccdd;
+  padding: 20px;
+  margin-top: 30px;
+  text-align: center;
+  font-size: 0.9em;
+  color: #660033;
+}
+
+#pageFooter a {
+  color: #cc3366;
+  text-decoration: none;
+  margin: 0 10px;
+}
+
+#pageFooter a:hover {
+  text-decoration: underline;
+}
+
+#pageFooter h2 {
+  font-family: 'Kaisei Decol', serif;
+  color: #ff3366;
+  margin-bottom: 10px;
+}
+
+#pageFooter p {
+  margin: 5px 0;
+  line-height: 1.4;
+}
+
+/* レスポンシブ対応 */
+@media screen and (max-width: 768px) {
+  #quiz-container {
+    width: 90%;
+    padding: 10px;
+  }
+  
+  h1 {
+    font-size: 1.4em;
+  }
+  
+  .choice {
+    padding: 10px;
+    font-size: 0.9em;
+  }
+  
+  button {
+    padding: 10px 15px;
+    font-size: 0.9em;
+  }
+  
+  .result-item {
+    font-size: 0.9em;
+  }
+  
+  .result-heading {
+    font-size: 1em;
+  }
+  
+  .result-summary, .result-line {
+    font-size: 0.9em;
+  }
+  
+  #pageFooter {
+    padding: 15px;
+    font-size: 0.8em;
+  }
+}
