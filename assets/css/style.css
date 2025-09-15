@@ -16,6 +16,12 @@ body {
   box-shadow: 0 4px 10px rgba(255, 105, 180, 0.5);
 }
 
+.header-image {
+  width: 60%;
+  display: block;
+  margin: 0 auto 16px auto;
+}
+
 h1 {
   font-family: 'Kaisei Decol', serif;
   color: #ff66b2;
@@ -149,7 +155,12 @@ button:hover {
     width: 90%;
     padding: 10px;
   }
-  
+
+  .header-image {
+    width: 80%;
+    margin-bottom: 12px;
+  }
+
   h1 {
     font-size: 1.4em;
   }
