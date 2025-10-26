@@ -383,6 +383,7 @@ function endQuiz() {
     document.getElementById('result-area').innerHTML = '';
     document.getElementById('timer').textContent = '0.00秒';
     document.getElementById('timer').classList.add('hidden');
+    document.getElementById('precure-count').classList.remove('hidden');
     document.getElementById('start-btn').classList.remove('hidden');
     document.getElementById('retry-btn').classList.add('hidden');
     document.getElementById('tweet-btn').classList.add('hidden');
