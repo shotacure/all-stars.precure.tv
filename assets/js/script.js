@@ -16,9 +16,25 @@ let startTime, elapsedTime = 0;
 let results = [];
 let lastAnswerTime;
 
+// ページ読み込み時に人数表示を更新
+document.addEventListener('DOMContentLoaded', () => {
+  // precure.jsonを読み込んで人数を取得して表示
+  fetch('data/precure.json')
+    .then(res => res.json())
+    .then(data => {
+      const count = data.length - 2; // ブライト＆ウィンディを除外
+      const countElem = document.getElementById('precure-count');
+      if (countElem) countElem.textContent = `いまのプリキュア…${count}にん`;
+    })
+    .catch(() => {
+      // 読み込み失敗時は「？」表示のままでもOK
+    });
+});
+
 // スタートボタン
 document.getElementById('start-btn').onclick = () => {
   document.getElementById('start-btn').classList.add('hidden');
+  document.getElementById('precure-count').classList.add('hidden');
   document.getElementById('timer').classList.remove('hidden');
   loadQuizData();
 };

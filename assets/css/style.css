@@ -16,10 +16,21 @@ body {
   box-shadow: 0 4px 10px rgba(255, 105, 180, 0.5);
 }
 
-.header-image {
-  width: 60%;
-  display: block;
-  margin: 0 auto 16px auto;
+.header-image{
+  width:65%;
+  max-width:560px;
+  height:auto;
+  display:block;
+  margin:0 auto 16px;
+  clear:both;
+}
+
+@media screen and (max-width: 768px){
+  .header-image{
+    width:85%;
+    max-width:85%;
+    margin-bottom:12px;
+  }
 }
 
 h1 {
@@ -27,6 +38,14 @@ h1 {
   color: #ff66b2;
   margin-bottom: 20px;
   text-shadow: 1px 1px 5px #ff99cc;
+}
+
+#precure-count {
+  font-family: 'Kaisei Decol', serif;
+  color: #ff66b2;
+  font-size: 1.3em;
+  margin: 8px 0 10px;
+  text-shadow: 1px 1px 4px #ffcce0;
 }
 
 button {
