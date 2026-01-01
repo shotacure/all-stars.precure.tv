@@ -211,3 +211,9 @@ button:hover {
     font-size: 0.8em;
   }
 }
+
+
+/* Language switch */
+#lang-switch{display:flex;gap:8px;justify-content:center;align-items:center;margin:8px 0;}
+#lang-switch button{font-size:14px;padding:6px 10px;border-radius:999px;border:1px solid rgba(0,0,0,.2);background:#fff;color:#000;cursor:pointer;box-shadow:none;font-family:'Kaisei Decol';}
+#lang-switch button.active{font-weight:700;}
