@@ -11,16 +11,154 @@
  *  - 初期表示：「いまのプリキュア…Nにん」を表示
  **********************************************/
 
+
+/*--------------------------------------------
+  i18n (ja/en)
+  - UI文字列を data/i18n/{lang}.json から読み込み
+--------------------------------------------*/
+let currentLang = 'ja';
+let I18N = {};
+let latestPrecureCount = null;
+let resultTimerSec = null; // 結果画面用：確定した秒数
+
+function t(key, vars = {}) {
+  const template = (I18N && I18N[key]) ? I18N[key] : '';
+  return template.replace(/\{\{(\w+)\}\}/g, (_, k) => (vars[k] ?? ''));
+}
+
+function v(entry, key) {
+  const val = entry ? entry[key] : '';
+  if (val && typeof val === 'object') {
+    return (val[currentLang] ?? val['ja'] ?? val['en'] ?? '');
+  }
+  return (val ?? '');
+}
+
+
+function showLangSwitch(){document.getElementById('lang-switch')?.classList.remove('hidden');}
+function hideLangSwitch(){document.getElementById('lang-switch')?.classList.add('hidden');}
+function applyI18nToDom() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    const attr = el.getAttribute('data-i18n-attr');
+    const value = (I18N && I18N[key]) ? I18N[key] : null;
+    if (value == null) return;
+    if (attr) el.setAttribute(attr, value);
+    else el.textContent = value;
+  });
+
+  // document title
+  if (I18N.site_title) document.title = I18N.site_title;
+
+  // <html lang="">
+  document.documentElement.setAttribute('lang', currentLang);
+}
+
+function setLangButtonsActive(lang) {
+  const jaBtn = document.getElementById('lang-ja');
+  const enBtn = document.getElementById('lang-en');
+  if (jaBtn) jaBtn.classList.toggle('active', lang === 'ja');
+  if (enBtn) enBtn.classList.toggle('active', lang === 'en');
+}
+
+function initLangSwitch() {
+  const jaBtn = document.getElementById('lang-ja');
+  const enBtn = document.getElementById('lang-en');
+
+  const setUrlLang = (lang) => {
+    const url = new URL(location.href);
+    const params = url.searchParams;
+    const r = params.get('r');
+
+    // 共有URLがある場合：r内の1ビット言語フラグを更新し、?en は使わない
+    if (r) {
+      try {
+        const decoded = decodeResultsBinary(r);
+        const newR = encodeResultsBinaryFromDecoded(decoded, lang === 'en' ? 1 : 0);
+        url.search = '?r=' + newR;
+      } catch (_) {
+        // decode失敗時はフォールバック：?en を使う（容量は増えるが復旧優先）
+        if (lang === 'en') url.search = '?en';
+        else url.search = '';
+      }
+    } else {
+      // 通常画面：?en の有無だけで表現
+      if (lang === 'en') url.search = '?en';
+      else url.search = '';
+    }
+
+    history.replaceState(null, '', url.toString());
+  };
+
+  if (jaBtn) {
+    jaBtn.addEventListener('click', () => {
+      setUrlLang('ja');
+      loadLanguage('ja');
+    });
+  }
+  if (enBtn) {
+    enBtn.addEventListener('click', () => {
+      setUrlLang('en');
+      loadLanguage('en');
+    });
+  }
+}
+
+function hasEnglishFlag() {
+  const params = new URLSearchParams(location.search);
+  return params.has('en');
+}
+
+
+function formatSeconds(sec) {
+  return t('timer_value', { sec: sec.toFixed(2) });
+}
+
+function updatePrecureCountLabel() {
+  const countElem = document.getElementById('precure-count');
+  if (!countElem) return;
+
+  if (latestPrecureCount == null) {
+    countElem.textContent = t('precure_count_unknown');
+  } else {
+    countElem.textContent = t('precure_count_value', { n: latestPrecureCount });
+  }
+}
+
+async function loadLanguage(lang) {
+  try {
+    const res = await fetch(`data/i18n/${lang}.json`);
+    I18N = await res.json();
+    currentLang = lang;
+    document.documentElement.lang = lang;
+    setLangButtonsActive(lang);
+    applyI18nToDom();
+    updatePrecureCountLabel();
+    rebuildQuestionsForLang();
+    rebuildResultsForLang();
+    refreshLanguageSensitiveUI();
+  } catch (e) {
+    // フォールバック：読み込み失敗時は何もしない
+    console.error(e);
+  }
+}
+
 /*--------------------------------------------
   通常出題の Q/A マッピング
 --------------------------------------------*/
 const QANDA = {
-  1: { questionKey: '変身後', answerKey: '変身前' },
-  2: { questionKey: '変身後', answerKey: '声優' },
-  3: { questionKey: '変身前', answerKey: '変身後' },
-  4: { questionKey: '変身前', answerKey: '声優' },
-  5: { questionKey: '声優',   answerKey: '変身後' },
-  6: { questionKey: '声優',   answerKey: '変身前' }
+  1: { questionKey: 'transformed', answerKey: 'civilian' },
+  2: { questionKey: 'transformed', answerKey: 'voice' },
+  3: { questionKey: 'civilian',    answerKey: 'transformed' },
+  4: { questionKey: 'civilian',    answerKey: 'voice' },
+  5: { questionKey: 'voice',       answerKey: 'transformed' },
+  6: { questionKey: 'voice',       answerKey: 'civilian' },
+
+  // 追加問題
+  7: { questionKey: 'civilian',    answerKey: 'father' },
+  8: { questionKey: 'civilian',    answerKey: 'mother' },
+  9: { questionKey: 'civilian',    answerKey: 'birthday' },
+  10:{ questionKey: 'transformed', answerKey: 'birthday' }
 };
 
 /*--------------------------------------------
@@ -69,13 +207,13 @@ function typeToFieldCode(t) {
   return 0;
 }
 function fieldCodeToKey(c) {
-  return c === 1 ? '変身前'
-       : c === 2 ? '変身後'
-       : c === 3 ? '声優'
-       : c === 4 ? '父親'
-       : c === 5 ? '母親'
-       : c === 6 ? '誕生日'
-       : null;
+  return c === 1 ? 'civilian'
+       : c === 2 ? 'transformed'
+       : c === 3 ? 'voice'
+       : c === 4 ? 'father'
+       : c === 5 ? 'mother'
+       : c === 6 ? 'birthday'
+       : '';
 }
 
 /*--------------------------------------------
@@ -112,12 +250,57 @@ function readBits(buf, bitPos, width) {
     不正：i(10), t(4), w(1=1), si+1(10), sf(3), tmCs(14) = 42bit
   - 正解時は「選択インデックス/選択カラム」を持たずに短縮
 --------------------------------------------*/
+
+/*--------------------------------------------
+  共有エンコード（復元データ→再エンコード）
+  - decodeResultsBinary の戻り値（totalCs/items）から、言語ビットだけ差し替えて再生成
+--------------------------------------------*/
+function encodeResultsBinaryFromDecoded(decoded, langBit) {
+  const ver = 7;
+  const totalCs = Math.min(65535, Math.max(0, decoded.totalCs || 0));
+  const items = Array.isArray(decoded.items) ? decoded.items : [];
+
+  // 必要ビット数（ver + lang + totalCs + items）
+  let totalBits = 8 + 1 + 16;
+  totalBits += items.reduce((acc, it) => acc + ((it.wrong === 0) ? 29 : 42), 0);
+
+  const buf = new Uint8Array(Math.ceil(totalBits / 8));
+  let p = 0;
+
+  p = writeBits(buf, p, ver, 8);
+  p = writeBits(buf, p, (langBit ? 1 : 0), 1);
+  p = writeBits(buf, p, totalCs, 16);
+
+  for (const it of items) {
+    const i = Math.min(1023, Math.max(0, it.i || 0)) & 0x3ff;
+    const t = (it.t || 0) & 0x0f;
+    const w = (it.wrong || 0) & 0x01;
+    const tmCs = Math.min(16383, Math.max(0, it.tmCs || 0)) & 0x3fff;
+
+    p = writeBits(buf, p, i, 10);
+    p = writeBits(buf, p, t, 4);
+    p = writeBits(buf, p, w, 1);
+
+    if (w === 0) {
+      p = writeBits(buf, p, tmCs, 14);
+    } else {
+      const si = Math.min(1023, Math.max(0, (it.si || 0))) & 0x3ff;
+      const sf = Math.min(7, Math.max(0, (it.sf || 0))) & 0x07;
+      p = writeBits(buf, p, si, 10);
+      p = writeBits(buf, p, sf, 3);
+      p = writeBits(buf, p, tmCs, 14);
+    }
+  }
+
+  return b64uEncode(String.fromCharCode(...buf));
+}
+
 function encodeResultsBinary(resArr, totalSeconds) {
-  const ver = 6;
+  const ver = 7;
   const totalCs = Math.min(65535, Math.max(0, Math.round(totalSeconds * 100)));
 
   // まず必要ビット数を概算（可変長）
-  let totalBits = 8 + 16; // ver + totalCs
+  let totalBits = 8 + 1 + 16; // ver + lang(1) + totalCs
   const perItemBits = resArr.map(r => (r.correct ? 29 : 42));
   totalBits += perItemBits.reduce((a, b) => a + b, 0);
 
@@ -126,6 +309,8 @@ function encodeResultsBinary(resArr, totalSeconds) {
 
   // ヘッダ書き込み
   p = writeBits(buf, p, ver, 8);
+  // 言語フラグ（0=ja, 1=en）
+  p = writeBits(buf, p, (currentLang === 'en') ? 1 : 0, 1);
   p = writeBits(buf, p, totalCs, 16);
 
   // 各問
@@ -167,7 +352,14 @@ function decodeResultsBinary(s) {
 
   // ヘッダ
   const ver = readBits(b, p, 8); p += 8;
-  if (ver !== 6) throw new Error('Unsupported share format');
+  let lang = 0;
+  if (ver === 6) {
+    lang = 0;
+  } else if (ver === 7) {
+    lang = readBits(b, p, 1); p += 1;
+  } else {
+    throw new Error('Unsupported share format');
+  }
   const totalCs = readBits(b, p, 16); p += 16;
 
   // 各問
@@ -194,24 +386,42 @@ function decodeResultsBinary(s) {
     items.push({ i, t, wrong: w, si, sf, tmCs });
   }
 
-  return { totalCs, items };
+  return { totalCs, items, lang };
 }
 
 /*--------------------------------------------
   初期化（人数の即表示／共有URL復元）
 --------------------------------------------*/
 document.addEventListener('DOMContentLoaded', () => {
+  // i18n: language init
+  // - 共有URL (?r=) では、パラメータ内の1ビット言語フラグを優先
+  // - それ以外は、?en がある場合のみ英語、無い場合は日本語
+  const params = new URLSearchParams(location.search);
+  const rParamForLang = params.get('r');
+  let initialLang = params.has('en') ? 'en' : 'ja';
+  if (rParamForLang) {
+    try {
+      const decodedHeader = decodeResultsBinary(rParamForLang);
+      initialLang = (decodedHeader.lang === 1) ? 'en' : 'ja';
+    } catch (_) {
+      // ignore
+    }
+  }
+  loadLanguage(initialLang);
+  initLangSwitch();
+
   const countElem = document.getElementById('precure-count');
 
   // 1) 人数の即表示（window.PRECURE_COUNT優先、なければローカルキャッシュ）
-  if (countElem) {
-    if (typeof window.PRECURE_COUNT === 'number') {
-      countElem.textContent = `いまのプリキュア…${window.PRECURE_COUNT}にん`;
-    } else {
-      const cached = localStorage.getItem('precure_count');
-      if (cached) countElem.textContent = `いまのプリキュア…${cached}にん`;
+  if (typeof window.PRECURE_COUNT === 'number') {
+    latestPrecureCount = window.PRECURE_COUNT;
+  } else {
+    const cached = localStorage.getItem('precure_count');
+    if (cached && !Number.isNaN(Number(cached))) {
+      latestPrecureCount = Number(cached);
     }
   }
+  updatePrecureCountLabel();
 
   // JSONを読み込んで人数キャッシュを更新（ブライト/ウィンディの2件を除外）
   fetch('data/precure.json')
@@ -221,7 +431,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (latest > 0) {
         localStorage.setItem('precure_count', String(latest));
         if (countElem && typeof window.PRECURE_COUNT !== 'number') {
-          countElem.textContent = `いまのプリキュア…${latest}にん`;
+          latestPrecureCount = latest;
+          updatePrecureCountLabel();
         }
       }
     })
@@ -252,23 +463,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 質問文の再生成（タイプ別）
         let qText = '';
-        if (it.t === 1)      qText = `${entry['変身後']}に変身するのは誰？`;
-        else if (it.t === 2) qText = `${entry['変身後']}を演じるのは誰？`;
-        else if (it.t === 3) qText = `${entry['変身前']}が変身するのは誰？`;
-        else if (it.t === 4) qText = `${entry['変身前']}を演じるのは誰？`;
-        else if (it.t === 5) qText = `${entry['声優']}さんが演じるのは誰？`;
-        else if (it.t === 6) qText = `${entry['声優']}さんが演じるのは誰？`;
-        else if (it.t === 7) qText = `${entry['変身前']}のお父さんは誰？`;
-        else if (it.t === 8) qText = `${entry['変身前']}のお母さんは誰？`;
-        else if (it.t === 9) qText = `${entry['変身前']}の誕生日はいつ？`;
-        else if (it.t === 10) qText = `${entry['変身後']}の誕生日はいつ？`;
+        if (it.t === 1)      qText = t('q_cure_transform_who', { name: v(entry,'transformed') });
+        else if (it.t === 2) qText = t('q_cure_actor_who', { name: v(entry,'transformed') });
+        else if (it.t === 3) qText = t('q_transform_who', { name: v(entry,'civilian') });
+        else if (it.t === 4) qText = t('q_civilian_actor_who', { name: v(entry,'civilian') });
+        else if (it.t === 5) qText = t('q_actor_who', { name: v(entry,'voice') });
+        else if (it.t === 6) qText = t('q_actor_who', { name: v(entry,'voice') });
+        else if (it.t === 7) qText = t('q_civilian_father_who', { name: v(entry,'civilian') });
+        else if (it.t === 8) qText = t('q_civilian_mother_who', { name: v(entry,'civilian') });
+        else if (it.t === 9) qText = t('q_civilian_birthday_when', { name: v(entry,'civilian') });
+        else if (it.t === 10) qText = t('q_cure_birthday_when', { name: v(entry,'transformed') });
 
         // 正答
         const correctAnswer =
-            it.t === 7 ? entry['父親']
-          : it.t === 8 ? entry['母親']
-          : (it.t === 9 || it.t === 10) ? entry['誕生日']
-          : entry[fieldCodeToKey(typeToFieldCode(it.t))];
+            it.t === 7 ? v(entry,'father')
+          : it.t === 8 ? v(entry,'mother')
+          : (it.t === 9 || it.t === 10) ? v(entry,'birthday')
+          : v(entry, fieldCodeToKey(typeToFieldCode(it.t)));
 
         // ユーザー解答（正解なら選択データを持っていない → 正答と同じ）
         let userAnswer;
@@ -277,14 +488,20 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           const key = fieldCodeToKey(it.sf);
           const userEntry = it.si >= 0 ? quizData[it.si] : null;
-          userAnswer = (userEntry && key) ? userEntry[key] : '(?)';
+          userAnswer = (userEntry && key) ? v(userEntry, key) : '(?)';
         }
 
         results.push({
+          entryIndex: it.i,
+          type: it.t,
           questionText: qText,
           correct: userAnswer === correctAnswer,
           correctAnswer,
           userAnswer,
+          // 共有復元でも言語切替で再構成できるように保持
+          selIndex: (it.wrong === 0) ? -1 : it.si,
+          selFieldCode: (it.wrong === 0) ? null : it.sf,
+          timeCs: it.tmCs,
           time: (it.tmCs / 100).toFixed(2)
         });
 
@@ -307,6 +524,7 @@ document.addEventListener('DOMContentLoaded', () => {
 document.getElementById('start-btn').onclick = () => {
   document.getElementById('start-btn').classList.add('hidden');
   document.getElementById('precure-count')?.classList.add('hidden');
+  hideLangSwitch();
   document.getElementById('timer').classList.remove('hidden');
   loadQuizData();
 };
@@ -347,18 +565,122 @@ function pickCandidate(arr, type, correctItem) {
 
   const qa = QANDA[type];
   if (qa) {
-    const sameQ = (e[qa.questionKey] === correctItem[qa.questionKey]);
-    const diffA = (e[qa.answerKey]   !== correctItem[qa.answerKey]);
+    const sameQ = (v(e, qa.questionKey) === v(correctItem, qa.questionKey));
+    const diffA = (v(e, qa.answerKey)   !== v(correctItem, qa.answerKey));
     if (sameQ && diffA) return null; // 「同一人物の別形態」などは除外
   }
   return pickAnswerByType(e, type);
 }
 function pickAnswerByType(entry, type) {
   switch (type) {
-    case 1: case 6: return entry['変身前'];
-    case 2: case 4: return entry['声優'];
-    case 3: case 5: return entry['変身後'];
+    case 1: case 6: return v(entry,'civilian');
+    case 2: case 4: return v(entry,'voice');
+    case 3: case 5: return v(entry,'transformed');
     default:        return null;
+  }
+}
+
+function buildQuestionText(type, entry) {
+  switch (type) {
+    case 1: return t('q_cure_transform_who', { name: v(entry,'transformed') });
+    case 2: return t('q_cure_actor_who', { name: v(entry,'transformed') });
+    case 3: return t('q_transform_who', { name: v(entry,'civilian') });
+    case 4: return t('q_civilian_actor_who', { name: v(entry,'civilian') });
+    case 5: return t('q_actor_who', { name: v(entry,'voice') });
+    case 6: return t('q_actor_who', { name: v(entry,'voice') });
+
+    // 追加問題
+    case 7: return t('q_civilian_father_who', { name: v(entry,'civilian') });
+    case 8: return t('q_civilian_mother_who', { name: v(entry,'civilian') });
+    case 9: return t('q_civilian_birthday_when', { name: v(entry,'civilian') });
+    case 10:return t('q_cure_birthday_when', { name: v(entry,'transformed') });
+    default: return '';
+  }
+}
+
+function answerKeyByType(type) {
+  if (type === 7) return 'father';
+  if (type === 8) return 'mother';
+  if (type === 9 || type === 10) return 'birthday';
+  return fieldCodeToKey(typeToFieldCode(type));
+}
+
+function rebuildQuestionsForLang() {
+  if (!Array.isArray(questions) || !questions.length) return;
+
+  questions.forEach(q => {
+    const entry = quizData[q.entryIndex];
+    if (!entry) return;
+
+    q.question = buildQuestionText(q.type, entry);
+
+    const aKey = answerKeyByType(q.type);
+    q.correct = v(entry, aKey);
+
+    if (Array.isArray(q.choiceEntryIndices) && q.choiceEntryIndices.length) {
+      q.choices = q.choiceEntryIndices.map(i => v(quizData[i], aKey));
+    }
+  });
+}
+
+function rebuildResultsForLang() {
+  if (!Array.isArray(results) || !results.length) return;
+
+  results.forEach(r => {
+    const entry = quizData[r.entryIndex];
+    if (!entry) return;
+
+    // 問題文
+    r.questionText = buildQuestionText(r.type, entry);
+
+    // 正答
+    const correctKey = answerKeyByType(r.type);
+    r.correctAnswer = v(entry, correctKey);
+
+    // ユーザー解答
+    // - 正解時（共有短縮時も含む）は「選択情報を持たない」ため正答と同じ
+    // - 不正解時は selIndex / selFieldCode から復元
+    if (r.selIndex != null && r.selIndex >= 0 && r.selFieldCode != null) {
+      const selKey = fieldCodeToKey(r.selFieldCode);
+      if (selKey) {
+        r.userAnswer = v(quizData[r.selIndex], selKey);
+      } else {
+        r.userAnswer = r.userAnswer ?? r.correctAnswer;
+      }
+    } else {
+      r.userAnswer = r.correctAnswer;
+    }
+
+    r.correct = (r.userAnswer === r.correctAnswer);
+  });
+}
+
+function refreshLanguageSensitiveUI() {
+  // タイマー
+  const timer = document.getElementById('timer');
+  if (timer) {
+    // 結果画面：確定値で固定（絶対に再計算しない）
+    if (resultTimerSec != null) {
+      timer.textContent = formatSeconds(resultTimerSec);
+    } else if (startTime) {
+      // 出題中：進行中の elapsedTime から表示（進んでOK）
+      timer.textContent = formatSeconds(elapsedTime / 1000);
+    }
+  }
+
+  // 出題中なら問題文と選択肢を差し替え
+  const startBtn = document.getElementById('start-btn');
+  const inQuiz = startBtn && startBtn.classList.contains('hidden') && Array.isArray(questions) && questions.length && currentQuestion < questions.length;
+  const hasResult = document.getElementById('result-area') && document.getElementById('result-area').innerHTML.trim() !== '';
+
+  if (hasResult) {
+    // 結果画面の文言差し替え（再描画）
+    endQuiz();
+    return;
+  }
+
+  if (inQuiz) {
+    showQuestion();
   }
 }
 
@@ -379,15 +701,13 @@ function generateQuestions() {
 
     const type = [2, 4, 5, 6][Math.floor(Math.random() * 4)];
     let q = '', a = '';
-    if (type === 2) { q = `${entry['変身後']}を演じるのは誰？`; a = entry['声優']; }
-    if (type === 4) { q = `${entry['変身前']}を演じるのは誰？`; a = entry['声優']; }
-    if (type === 5) { q = `${entry['声優']}さんが演じるのは誰？`; a = entry['変身後']; }
-    if (type === 6) { q = `${entry['声優']}さんが演じるのは誰？`; a = entry['変身前']; }
+    a = pickAnswerByType(entry, type);
+    q = buildQuestionText(type, entry);
 
     const choices = [a];
     while (choices.length < 4) {
-      const same  = quizData.filter(e => e['シリーズ'] === entry['シリーズ']);
-      const other = quizData.filter(e => e['シリーズ'] !== entry['シリーズ']);
+      const same  = quizData.filter(e => e.series === entry.series);
+      const other = quizData.filter(e => e.series !== entry.series);
       const from  = (Math.random() < 0.7 && same.length) ? same : other;
       const cand  = pickCandidate(from, type, entry);
       if (!cand || choices.includes(cand)) continue;
@@ -395,12 +715,17 @@ function generateQuestions() {
     }
     choices.sort(() => Math.random() - 0.5);
 
+    const qType = (typeof type !== 'undefined') ? type : typeCode;
+    const aKey = answerKeyByType(qType);
+    const choiceEntryIndices = choices.map(c => quizData.findIndex(e => v(e, aKey) === c));
+
     questions.push({
       question: q,
       choices,
       correct: a,
       type,
-      entryIndex: quizData.indexOf(entry)
+      entryIndex: quizData.indexOf(entry),
+      choiceEntryIndices
     });
     used.add(entry);
     vCount++;
@@ -412,13 +737,13 @@ function generateQuestions() {
 
     const type = [1, 3][Math.floor(Math.random() * 2)];
     let q = '', a = '';
-    if (type === 1) { q = `${entry['変身後']}に変身するのは誰？`; a = entry['変身前']; }
-    if (type === 3) { q = `${entry['変身前']}が変身するのは誰？`; a = entry['変身後']; }
+    a = pickAnswerByType(entry, type);
+    q = buildQuestionText(type, entry);
 
     const choices = [a];
     while (choices.length < 4) {
-      const same  = quizData.filter(e => e['シリーズ'] === entry['シリーズ']);
-      const other = quizData.filter(e => e['シリーズ'] !== entry['シリーズ']);
+      const same  = quizData.filter(e => e.series === entry.series);
+      const other = quizData.filter(e => e.series !== entry.series);
       const from  = (Math.random() < 0.7 && same.length) ? same : other;
       const cand  = pickCandidate(from, type, entry);
       if (!cand || choices.includes(cand)) continue;
@@ -426,12 +751,17 @@ function generateQuestions() {
     }
     choices.sort(() => Math.random() - 0.5);
 
+    const qType = (typeof type !== 'undefined') ? type : typeCode;
+    const aKey = answerKeyByType(qType);
+    const choiceEntryIndices = choices.map(c => quizData.findIndex(e => v(e, aKey) === c));
+
     questions.push({
       question: q,
       choices,
       correct: a,
       type,
-      entryIndex: quizData.indexOf(entry)
+      entryIndex: quizData.indexOf(entry),
+      choiceEntryIndices
     });
     used.add(entry);
     oCount++;
@@ -450,23 +780,23 @@ function generateQuestions() {
   let addEntry = null;
   while (idx < shuffled.length) {
     const e = shuffled[idx++]; if (used.has(e)) continue;
-    if (sel === 'father' && !e['父親']) continue;
-    if (sel === 'mother' && !e['母親']) continue;
-    if ((sel === 'birthdayA' || sel === 'birthdayB') && !e['誕生日']) continue;
+    if (sel === 'father' && !v(e,'father')) continue;
+    if (sel === 'mother' && !v(e,'mother')) continue;
+    if ((sel === 'birthdayA' || sel === 'birthdayB') && !v(e,'birthday')) continue;
     addEntry = e; break;
   }
 
   if (addEntry) {
     let q = '', a = '', typeCode = 0;
-    if (sel === 'father')     { q = `${addEntry['変身前']}のお父さんは誰？`;   a = addEntry['父親'];   typeCode = 7;  }
-    else if (sel === 'mother'){ q = `${addEntry['変身前']}のお母さんは誰？`;   a = addEntry['母親'];   typeCode = 8;  }
-    else if (sel === 'birthdayA'){ q = `${addEntry['変身前']}の誕生日はいつ？`; a = addEntry['誕生日']; typeCode = 9;  }
-    else                      { q = `${addEntry['変身後']}の誕生日はいつ？`;     a = addEntry['誕生日']; typeCode = 10; }
+    if (sel === 'father')     { q = t('q_civilian_father_who', { name: v(addEntry,'civilian') });   a = v(addEntry,'father');   typeCode = 7;  }
+    else if (sel === 'mother'){ q = t('q_civilian_mother_who', { name: v(addEntry,'civilian') });   a = v(addEntry,'mother');   typeCode = 8;  }
+    else if (sel === 'birthdayA'){ q = t('q_civilian_birthday_when', { name: v(addEntry,'civilian') }); a = v(addEntry,'birthday'); typeCode = 9;  }
+    else                      { q = t('q_cure_birthday_when', { name: v(addEntry,'transformed') });     a = v(addEntry,'birthday'); typeCode = 10; }
 
     // 誤答候補：可能な限り同シリーズから
-    const fieldKey = (sel === 'father') ? '父親' : (sel === 'mother') ? '母親' : '誕生日';
-    const same  = quizData.filter(e => e['シリーズ'] === addEntry['シリーズ'] && e[fieldKey]);
-    const other = quizData.filter(e => e['シリーズ'] !== addEntry['シリーズ'] && e[fieldKey]);
+    const fieldKey = (sel === 'father') ? 'father' : (sel === 'mother') ? 'mother' : 'birthday';
+    const same  = quizData.filter(e => e.series === addEntry.series && v(e, fieldKey));
+    const other = quizData.filter(e => e.series !== addEntry.series && v(e, fieldKey));
 
     const choices = [a];
     let tries = 0;
@@ -475,14 +805,14 @@ function generateQuestions() {
       const from = (Math.random() < 0.7 && same.length) ? same : other;
       const ce = from[Math.floor(Math.random() * from.length)];
       if (!ce) continue;
-      const cand = ce[fieldKey];
+      const cand = v(ce, fieldKey);
       if (!cand || choices.includes(cand)) continue;
       choices.push(cand);
     }
     if (choices.length < 4) {
-      const pool = quizData.filter(e => e[fieldKey]);
+      const pool = quizData.filter(e => v(e, fieldKey));
       for (const e of pool) {
-        const cand = e[fieldKey];
+        const cand = v(e, fieldKey);
         if (cand && !choices.includes(cand)) choices.push(cand);
         if (choices.length >= 4) break;
       }
@@ -490,13 +820,18 @@ function generateQuestions() {
 
     choices.sort(() => Math.random() - 0.5);
 
+    const qType = (typeof type !== 'undefined') ? type : typeCode;
+    const aKey = answerKeyByType(qType);
+    const choiceEntryIndices = choices.map(c => quizData.findIndex(e => v(e, aKey) === c));
+
     questions.push({
       question: q,
       choices,
       correct: a,
       type: typeCode,
       additional: true,
-      entryIndex: quizData.indexOf(addEntry)
+      entryIndex: quizData.indexOf(addEntry),
+      choiceEntryIndices
     });
   }
 }
@@ -522,7 +857,7 @@ function startQuiz() {
 function updateTimer() {
   elapsedTime = Date.now() - startTime;
   const s = elapsedTime / 1000;
-  document.getElementById('timer').textContent = s.toFixed(2) + '秒';
+  document.getElementById('timer').textContent = formatSeconds(s);
 
   if (s > TOTAL_LIMIT) {
     clearInterval(timerInterval);
@@ -535,16 +870,19 @@ function updateTimer() {
   - UIと状態を初期化し、?r を除去して純粋な初期表示に戻す
 --------------------------------------------*/
 function resetToHome() {
+  showLangSwitch();
   questions = [];
   results = [];
   currentQuestion = 0;
   elapsedTime = 0;
+  resultTimerSec = null; // 結果確定時間リセット
 
   document.getElementById('result-area').innerHTML = '';
-  document.getElementById('timer').textContent = '0.00秒';
+  document.getElementById('timer').textContent = formatSeconds(0);
   document.getElementById('timer').classList.add('hidden');
   document.getElementById('start-btn').classList.remove('hidden');
   document.getElementById('precure-count')?.classList.remove('hidden');
+  document.getElementById('lang-switch')?.classList.remove('hidden');
   document.getElementById('retry-btn').classList.add('hidden');
   document.getElementById('tweet-btn').classList.add('hidden');
   document.getElementById('question-area').innerHTML = '';
@@ -603,13 +941,13 @@ function answer(selectedChoice) {
   let selFieldCode = fieldCode;
 
   if (fieldKey) {
-    selIndex = quizData.findIndex(e => e[fieldKey] === selectedChoice);
+    selIndex = quizData.findIndex(e => v(e, fieldKey) === selectedChoice);
     if (selIndex < 0) {
       // 想定外のカラムに該当している可能性（例：氏名と誕生日など）
       for (const c of [1,2,3,4,5,6].filter(c => c !== fieldCode)) {
         const k = fieldCodeToKey(c);
         if (!k) continue;
-        const idx = quizData.findIndex(e => e[k] === selectedChoice);
+        const idx = quizData.findIndex(e => v(e, k) === selectedChoice);
         if (idx >= 0) { selIndex = idx; selFieldCode = c; break; }
       }
     }
@@ -640,7 +978,10 @@ function answer(selectedChoice) {
 function endQuiz() {
   clearInterval(timerInterval);
 
-  document.getElementById('question-area').innerHTML = '🎀けっかはっぴょう🎀';
+  // 結果画面に入った瞬間の秒数を確定
+  resultTimerSec = elapsedTime / 1000;
+
+  document.getElementById('question-area').innerHTML = t('result_heading_html');
   document.getElementById('choices-area').innerHTML  = '';
 
   const resArea = document.getElementById('result-area');
@@ -655,7 +996,7 @@ function endQuiz() {
 
     const heading = document.createElement('div');
     heading.className = 'result-heading';
-    heading.innerHTML = `<strong>だい${i + 1}もん</strong>`;
+    heading.innerHTML = `<strong>${t('result_q_heading', { n: (i + 1) })}</strong>`;
 
     const summary = document.createElement('div');
     summary.className = 'result-summary';
@@ -664,10 +1005,10 @@ function endQuiz() {
     const resultLine = document.createElement('div');
     resultLine.className = 'result-line';
     if (r.correct) {
-      resultLine.innerHTML = `<span class="result-icon correct">○せいかい</span> (${r.time}びょう)`;
+      resultLine.innerHTML = `<span class="result-icon correct">${t('result_correct')}</span> (${t('result_time', { sec: r.time })})`;
       correctCount++;
     } else {
-      resultLine.innerHTML = `<span class="result-icon incorrect">×ざんねん</span> (${r.time}びょう) せいかい：${r.correctAnswer}`;
+      resultLine.innerHTML = `<span class="result-icon incorrect">${t('result_incorrect')}</span> (${t('result_time', { sec: r.time })}) ${t('result_correct_answer', { ans: r.correctAnswer })}`;
     }
 
     d.appendChild(heading);
@@ -680,53 +1021,63 @@ function endQuiz() {
   const totalSec  = elapsedTime / 1000;
   const totalText = totalSec.toFixed(2);
 
+  // ほめコメント
   let praise = '';
-  if (correctCount === 10)      praise = 'すごい！パーフェクトだよ！';
-  else if (correctCount >= 7)   praise = 'よくできました！';
-  else if (correctCount >= 4)   praise = 'がんばったね！つぎはもっといけるよ！';
-  else if (correctCount >= 1)   praise = 'おしかったね！またちょうせんしよう！';
-  else                          praise = 'さいごまでがんばったね！';
+  if (correctCount === 10)      praise = t('praise_perfect');
+  else if (correctCount >= 7)   praise = t('praise_very_good');
+  else if (correctCount >= 4)   praise = t('praise_good');
+  else if (correctCount >= 1)   praise = t('praise_close');
+  else                          praise = t('praise_finish');
 
+  // はやさコメント
   let speedComment = '';
-  if (totalSec < 10)      speedComment = 'スピードもカンペキ！すっごくはやい！';
-  else if (totalSec < 30) speedComment = 'なかなかはやいよ！';
-  else if (totalSec < 60) speedComment = 'いいペースだったね！';
-  else                    speedComment = 'じっくりかんがえてがんばったね！';
+  if (totalSec < 15)      speedComment = t('speed_very_fast');
+  else if (totalSec < 30) speedComment = t('speed_fast');
+  else if (totalSec < 60) speedComment = t('speed_ok');
+  else                    speedComment = t('speed_think');
 
-  resArea.innerHTML +=
-    `<h2>せいかいしたかず：${correctCount}/10<br>かかったじかん：${totalText}びょう</h2>`;
-  resArea.innerHTML += `<p>${praise}<br>${speedComment}</p>`;
+  // 合計スコア表示
+  resArea.innerHTML += t('result_score_time_html', { correct: correctCount, sec: totalText });
+  resArea.innerHTML += t('result_praise_speed_html', { praise, speed: speedComment });
 
+  // ボタン設定
   const tweetBtn = document.getElementById('tweet-btn');
   const retryBtn = document.getElementById('retry-btn');
-
-  // 共有ビュー時：ツイート非表示・「あそんでみる」ボタン
-  if (isSharedView) {
-    tweetBtn?.classList.add('hidden');
-    if (retryBtn) {
-      retryBtn.textContent = 'あそんでみる';
-      retryBtn.classList.remove('hidden');
-      retryBtn.onclick = () => { location.href = location.origin + location.pathname; };
-    }
-    return;
-  }
 
   // 共有URL生成（合計は16bit上限で丸め、エンコード）
   const totalCs16 = Math.min(65535, Math.max(0, Math.round(totalSec * 100)));
   const shareParam = encodeResultsBinary(results, totalCs16 / 100);
   const shareUrl   = `${location.origin}${location.pathname}?r=${shareParam}`;
 
+  // 結果画面になった時点で、URLを共有形式に更新（コピー共有しやすくする）
+  try { history.replaceState(null, '', `${location.pathname}?r=${shareParam}`); } catch (_) {}
+
+  // ツイートボタン設定
   if (tweetBtn) {
-    tweetBtn.classList.remove('hidden');
-    tweetBtn.onclick = () => {
-      const text = `#プリキュアオールスターズいえるかなクイズ で${correctCount}/10問正解、タイムは${totalText}秒でした！ ${praise} ${speedComment} ${shareUrl}`;
-      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
-    };
+    // 共有URL（他人の結果）で開いた場合は表示しない
+    if (isSharedView) {
+      tweetBtn.classList.add('hidden');
+      tweetBtn.onclick = null;
+    } else {
+      tweetBtn.classList.remove('hidden');
+      tweetBtn.onclick = () => {
+        const body = t('tweet_result', { correct: correctCount, total: 10, time: totalText });
+        const text = `${body} ${praise} ${speedComment} ${shareUrl}`;
+        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+      };
+    }
   }
 
+  // リトライボタン設定
   if (retryBtn) {
-    retryBtn.textContent = 'もういちどあそぶ';
+    retryBtn.textContent = t('retry');
     retryBtn.classList.remove('hidden');
-    retryBtn.onclick = () => { location.reload(); };
+    retryBtn.onclick = () => {
+      // いまの言語を 1bit で保持してホームへ
+      // - 英語: ?en
+      // - 日本語: クエリなし
+      location.href = location.origin + location.pathname + (currentLang === 'en' ? '?en' : '');
+    };
   }
+  showLangSwitch();
 }

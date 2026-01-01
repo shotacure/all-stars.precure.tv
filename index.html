@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>プリキュアオールスターズいえるかなクイズ</title>
+  <title data-i18n="site_title">プリキュアオールスターズいえるかなクイズ</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Kaisei+Decol&family=Noto+Sans+JP:wght@500&display=swap" rel="stylesheet" />
@@ -11,34 +11,39 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:site" content="@shota_" />
   <meta name="twitter:creator" content="@shota_" />
-  <meta name="twitter:title" content="💖プリキュアオールスターズいえるかなクイズ💖" />
-  <meta name="twitter:description" content="プリキュアたくさんいえるかな？ みんなでスコアとタイムをきょうそうしよう！" />
+  <meta name="twitter:title" content="💖プリキュアオールスターズいえるかなクイズ💖"  data-i18n="twitter_title" data-i18n-attr="content" />
+  <meta name="twitter:description" content="プリキュアたくさんいえるかな？ みんなでスコアとタイムをきょうそうしよう！"  data-i18n="twitter_description" data-i18n-attr="content" />
   <meta name="twitter:image" content="https://all-stars.precure.tv/assets/images/twitter-card.png" />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="💖プリキュアオールスターズいえるかなクイズ💖" />
-  <meta property="og:description" content="プリキュアたくさんいえるかな？ みんなでスコアとタイムをきょうそうしよう！" />
+  <meta property="og:title" content="💖プリキュアオールスターズいえるかなクイズ💖"  data-i18n="og_title" data-i18n-attr="content" />
+  <meta property="og:description" content="プリキュアたくさんいえるかな？ みんなでスコアとタイムをきょうそうしよう！"  data-i18n="og_description" data-i18n-attr="content" />
   <meta property="og:image" content="https://all-stars.precure.tv/assets/images/twitter-card.png" />
   <meta property="og:url" content="https://all-stars.precure.tv/" />
-  <meta property="og:site_name" content="プリキュアオールスターズいえるかなクイズ" />
-  <meta property="og:locale" content="ja_JP" />
+  <meta property="og:site_name" content="プリキュアオールスターズいえるかなクイズ"  data-i18n="og_site_name" data-i18n-attr="content" />
+  <meta property="og:locale" content="ja_JP" data-i18n="og_locale" data-i18n-attr="content" />
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5243275457667394" crossorigin="anonymous"></script>
 </head>
 <body>
   <div id="quiz-container">
-    <img class="header-image" src="assets/images/twitter-card.png" alt="プリキュアオールスターズいえるかなクイズ" />
-    <div id="precure-count">いまのプリキュア…？にん</div>
-    <button id="start-btn">スタート！</button>
+    <img class="header-image" src="assets/images/twitter-card.png" alt="プリキュアオールスターズいえるかなクイズ" data-i18n="header_image_alt" data-i18n-attr="alt" />
+    
+    <div id="lang-switch">
+      <button type="button" id="lang-ja" data-i18n="btn_lang_ja">にほんご</button>
+      <button type="button" id="lang-en" data-i18n="btn_lang_en">English</button>
+    </div>
+    <div id="precure-count" data-i18n="precure_count_unknown">いまのプリキュア…？にん</div>
+    <button id="start-btn" data-i18n="start_btn">スタート！</button>
     <div id="timer" class="hidden">0.00秒</div>
     <div id="question-area"></div>
     <div id="choices-area"></div>
     <div id="result-area"></div>
-    <button id="tweet-btn" class="hidden">けっかをTwitterでシェア！</button>
-    <button id="retry-btn" class="hidden">もういちどあそぶ</button>
+    <button id="tweet-btn" class="hidden" data-i18n="tweet_btn">けっかをTwitterでシェア！</button>
+    <button id="retry-btn" class="hidden" data-i18n="retry_btn">もういちどあそぶ</button>
   </div>
 
   <footer id="pageFooter">
     <section id="contact">
-      <h2>お問い合わせ</h2>
+      <h2 data-i18n="contact_h2">お問い合わせ</h2>
       <p>
         <a href="https://x.com/shota_" target="_blank">X: @shota_</a>
         <a href="mailto:showtime@precure.tv">shota@precure.tv</a>
@@ -46,7 +51,7 @@
     </section>
     <div id="copyright">
       <p>© Shota (SHOWTIME). All rights reserved for original works.</p>
-      <p>サークル「SHOWTIME」代表・祥太が個人で運営しています。ABCアニメーション様、東映アニメーション様、その他各社様とは一切関係ございません。</p>
+      <p data-i18n="disclaimer">サークル「SHOWTIME」代表・祥太が個人で運営しています。ABCアニメーション様、東映アニメーション様、その他各社様とは一切関係ございません。</p>
     </div>
   </footer>
 
