@@ -556,6 +556,39 @@ function shuffleArray(arr) {
 }
 
 /*--------------------------------------------
+  出題データのシリーズ優先設定
+--------------------------------------------*/
+const PRIORITY_SERIES = '2026';
+const PRIORITY_RATE = 0.125;
+
+/**
+ * 未使用エントリの中から、指定シリーズを一定確率で優先して 1 件選ぶ
+ * @param {Set<any>} usedSet 既に正解に使ったエントリ集合
+ * @param {(e:any)=>boolean} predicate 条件（null 可）
+ * @returns {any|null}
+ */
+function pickEntryWithSeriesBias(usedSet, predicate) {
+  const pool = quizData.filter(e => !usedSet.has(e) && (!predicate || predicate(e)));
+  if (!pool.length) return null;
+
+  // 優先設定が無効なら通常ランダム
+  if (!PRIORITY_SERIES || !PRIORITY_RATE) {
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  const pri = pool.filter(e => e.series === PRIORITY_SERIES);
+  const oth = pool.filter(e => e.series !== PRIORITY_SERIES);
+
+  // 片方しか無い場合はそのまま
+  if (!pri.length) return oth[Math.floor(Math.random() * oth.length)];
+  if (!oth.length) return pri[Math.floor(Math.random() * pri.length)];
+
+  // 両方ある場合のみ、確率で優先シリーズを選ぶ
+  const src = (Math.random() < PRIORITY_RATE) ? pri : oth;
+  return src[Math.floor(Math.random() * src.length)];
+}
+
+/*--------------------------------------------
   ダミー候補抽出
   - 同一人物の別形態（同じ質問キーで答えだけ違う）は除外
 --------------------------------------------*/
@@ -691,17 +724,24 @@ function refreshLanguageSensitiveUI() {
 --------------------------------------------*/
 function generateQuestions() {
   questions = [];
-  const shuffled = shuffleArray([...quizData]);
   const used = new Set(); // 正解に使ったエントリ
-  let vCount = 0, oCount = 0, idx = 0;
+  let vCount = 0, oCount = 0;
+
+  // 無限ループ防止（データ欠損が多い場合の保険）
+  let guard = 0;
 
   // 声優2問（type: 2/4/5/6 からランダム）
-  while (vCount < 2 && idx < shuffled.length) {
-    const entry = shuffled[idx++]; if (used.has(entry)) continue;
-
+  guard = 0;
+  while (vCount < 2 && guard++ < 2000) {
     const type = [2, 4, 5, 6][Math.floor(Math.random() * 4)];
+
+    // series 優先確率を適用しつつ、該当 type の回答が作れるものだけ候補にする
+    const entry = pickEntryWithSeriesBias(used, (e) => !!pickAnswerByType(e, type));
+    if (!entry) break;
+
     let q = '', a = '';
     a = pickAnswerByType(entry, type);
+    if (!a) continue; // 未定義（空）なら問題にしない
     q = buildQuestionText(type, entry);
 
     const choices = [a];
@@ -731,13 +771,18 @@ function generateQuestions() {
     vCount++;
   }
 
-  // その他7問（type: 1/3）
-  while (oCount < 7 && idx < shuffled.length) {
-    const entry = shuffled[idx++]; if (used.has(entry)) continue;
 
+  // その他7問（type: 1/3）
+  guard = 0;
+  while (oCount < 7 && guard++ < 4000) {
     const type = [1, 3][Math.floor(Math.random() * 2)];
+
+    const entry = pickEntryWithSeriesBias(used, (e) => !!pickAnswerByType(e, type));
+    if (!entry) break;
+
     let q = '', a = '';
     a = pickAnswerByType(entry, type);
+    if (!a) continue; // 未定義（空）なら問題にしない
     q = buildQuestionText(type, entry);
 
     const choices = [a];
@@ -777,14 +822,12 @@ function generateQuestions() {
   let roll = Math.random(), acc = 0, sel = null;
   for (const p of patterns) { acc += p.p; if (roll < acc) { sel = p.key; break; } }
 
-  let addEntry = null;
-  while (idx < shuffled.length) {
-    const e = shuffled[idx++]; if (used.has(e)) continue;
-    if (sel === 'father' && !v(e,'father')) continue;
-    if (sel === 'mother' && !v(e,'mother')) continue;
-    if ((sel === 'birthdayA' || sel === 'birthdayB') && !v(e,'birthday')) continue;
-    addEntry = e; break;
-  }
+  const addEntry = pickEntryWithSeriesBias(used, (e) => {
+    if (sel === 'father') return !!v(e,'father');
+    if (sel === 'mother') return !!v(e,'mother');
+    if (sel === 'birthdayA' || sel === 'birthdayB') return !!v(e,'birthday');
+    return false;
+  });
 
   if (addEntry) {
     let q = '', a = '', typeCode = 0;
