@@ -2061,5 +2061,62 @@
       "ja": "12月7日",
       "en": "December 7th"
     }
+  },
+  {
+    "series": "2026",
+    "transformed": {
+      "ja": "キュアアンサー",
+      "en": "Cure Answer"
+    },
+    "civilian": {
+      "ja": "明智あんな",
+      "en": "Akechi Anna"
+    },
+    "voice": {
+      "ja": "千賀光莉",
+      "en": "Senga Hikari"
+    },
+    "birthday": {
+      "ja": "1月24日",
+      "en": "January 24th"
+    }
+  },
+  {
+    "series": "2026",
+    "transformed": {
+      "ja": "キュアミスティック",
+      "en": "Cure Mystique"
+    },
+    "civilian": {
+      "ja": "小林みくる",
+      "en": "Kobayashi Mikuru"
+    },
+    "voice": {
+      "ja": "本渡 楓",
+      "en": "Hondo Kaede"
+    },
+    "birthday": {
+      "ja": "4月22日",
+      "en": "April 22nd"
+    }
+  },
+  {
+    "series": "2026",
+    "transformed": {
+      "ja": "キュアアルカナ・シャドウ",
+      "en": "Cure Alcana Shadow"
+    },
+    "civilian": {
+      "ja": "森亜るるか",
+      "en": "Moria Ruruka"
+    },
+    "voice": {
+      "ja": "東山奈央",
+      "en": "Toyama Nao"
+    },
+    "birthday": {
+      "ja": "11月1日",
+      "en": "November 1st"
+    }
   }
 ]
