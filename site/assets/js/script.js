@@ -9,8 +9,39 @@
  *      正解のときは「選択情報を持たない」可変長レコードでURL短縮
  *  - 共有URL復元：?r= パラメータから結果画面を再現
  *  - 初期表示：「いまのプリキュア…Nにん」を表示
+ *  - ランキング：上位20位をバックエンドと連携して管理
+ *      読み取りはS3上のleaderboard.jsonをCloudFront経由で取得
+ *      書き込みはランクイン時のみAPI経由でバックエンドにアクセス
  **********************************************/
 
+
+/*--------------------------------------------
+  設定
+  - config.js（.gitignore対象）から環境別の値を読み込む
+  - config.js が未設定でもクイズ本体は動作する（ランキング機能のみ無効化）
+--------------------------------------------*/
+const ALLSTARS_CFG = window.ALLSTARS_CONFIG || {};
+const API_BASE_URL = ALLSTARS_CFG.API_BASE_URL || '';
+
+/*--------------------------------------------
+  Google Analytics 4 動的読み込み
+  - config.js に GA4_MEASUREMENT_ID が設定されている場合のみ有効化
+  - 未設定・空文字の場合は何も読み込まない
+--------------------------------------------*/
+(function initGA4() {
+  const id = ALLSTARS_CFG.GA4_MEASUREMENT_ID;
+  if (!id) return;
+
+  const script = document.createElement('script');
+  script.async = true;
+  script.src = `https://www.googletagmanager.com/gtag/js?id=${id}`;
+  document.head.appendChild(script);
+
+  window.dataLayer = window.dataLayer || [];
+  function gtag() { window.dataLayer.push(arguments); }
+  gtag('js', new Date());
+  gtag('config', id);
+})();
 
 /*--------------------------------------------
   i18n (ja/en)
@@ -137,6 +168,7 @@ async function loadLanguage(lang) {
     rebuildQuestionsForLang();
     rebuildResultsForLang();
     refreshLanguageSensitiveUI();
+    renderLeaderboard();
   } catch (e) {
     // フォールバック：読み込み失敗時は何もしない
     console.error(e);
@@ -179,6 +211,14 @@ let elapsedTime = 0;        // 合計経過時間(ms)
 let results = [];           // 回答結果（共有用メタ含む）
 let lastAnswerTime;         // 直前回答時刻(ms)
 let isSharedView = false;   // 共有URLからの閲覧か
+
+/*--------------------------------------------
+  ランキング状態
+  - leaderboard: S3のleaderboard.jsonから読み込んだtop20配列
+  - sessionToken: バックエンドから取得したセッショントークン
+--------------------------------------------*/
+let leaderboard = [];
+let sessionToken = null;
 
 /*--------------------------------------------
   Base64URL ユーティリティ
@@ -390,7 +430,136 @@ function decodeResultsBinary(s) {
 }
 
 /*--------------------------------------------
-  初期化（人数の即表示／共有URL復元）
+  ランキング：leaderboard.json の読み込み
+  - ページ読み込み時にS3/CloudFront経由で取得しメモリに保持
+  - バックエンドAPIへのアクセスは不要（静的JSON配信）
+--------------------------------------------*/
+async function loadLeaderboard() {
+  try {
+    const res = await fetch('leaderboard.json');
+    if (!res.ok) {
+      leaderboard = [];
+      return;
+    }
+    const data = await res.json();
+    leaderboard = Array.isArray(data.top20) ? data.top20 : [];
+  } catch {
+    // leaderboard.json が存在しない初期状態でもエラーにしない
+    leaderboard = [];
+  }
+}
+
+/*--------------------------------------------
+  ランキング：順位判定
+  - 満点（10問正解）のみ登録対象
+  - 満点同士では合計タイム（センチ秒）の昇順で順位を決定
+  - top20の末尾より速いか、まだ20件未満なら圏内
+--------------------------------------------*/
+function isQualified(correct, totalTimeCs) {
+  if (correct !== 10) return false;
+  if (leaderboard.length < 20) return true;
+  const last = leaderboard[leaderboard.length - 1];
+  return totalTimeCs < last.totalTimeCs;
+}
+
+/*--------------------------------------------
+  ランキング：表示
+  - 満点達成者のみのタイムランキングを描画
+  - 結果画面・初期画面の両方で表示
+--------------------------------------------*/
+function renderLeaderboard() {
+  const area = document.getElementById('leaderboard-area');
+  const list = document.getElementById('leaderboard-list');
+  if (!area || !list) return;
+
+  // ランキングデータがなければ非表示
+  if (!leaderboard.length) {
+    area.classList.add('hidden');
+    return;
+  }
+
+  area.classList.remove('hidden');
+
+  let html = '<table class="leaderboard-table">';
+  html += `<thead><tr>
+    <th>${t('leaderboard_rank')}</th>
+    <th>${t('leaderboard_name')}</th>
+    <th>${t('leaderboard_time')}</th>
+  </tr></thead><tbody>`;
+
+  leaderboard.forEach((entry, i) => {
+    const timeSec = (entry.totalTimeCs / 100).toFixed(2);
+    html += `<tr>
+      <td>${i + 1}</td>
+      <td>${escapeHtml(entry.name)}</td>
+      <td>${t('result_time', { sec: timeSec })}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  list.innerHTML = html;
+}
+
+/*--------------------------------------------
+  HTMLエスケープ（ランキング名前表示用）
+--------------------------------------------*/
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+/*--------------------------------------------
+  ランキング：セッショントークン取得
+  - クイズ開始時にバックエンドから取得
+  - タイム偽装防止のためサーバー側で発行時刻を記録
+--------------------------------------------*/
+async function fetchSessionToken() {
+  if (!API_BASE_URL) {
+    sessionToken = null;
+    return;
+  }
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/session`);
+    if (!res.ok) throw new Error('Session API error');
+    const data = await res.json();
+    sessionToken = data.token || null;
+  } catch {
+    // トークン取得失敗時もクイズは続行可能（ランキング登録不可になるだけ）
+    sessionToken = null;
+  }
+}
+
+/*--------------------------------------------
+  ランキング：スコア送信
+  - ランクイン時のみ名前と結果をバックエンドに送信
+  - トークンは呼び出し元から明示的に渡す（グローバル参照による二重使用を防止）
+  - 成功時は最新のtop20を受け取りメモリ・表示を更新
+--------------------------------------------*/
+async function submitScoreWithToken(token, name, correct, totalTimeCs) {
+  if (!API_BASE_URL) return { qualified: false };
+
+  const res = await fetch(`${API_BASE_URL}/api/score`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token,
+      name,
+      correct,
+      totalTimeCs,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Score submission failed');
+  }
+
+  return await res.json();
+}
+
+/*--------------------------------------------
+  初期化（人数の即表示／共有URL復元／ランキング読み込み）
 --------------------------------------------*/
 document.addEventListener('DOMContentLoaded', () => {
   // i18n: language init
@@ -409,6 +578,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   loadLanguage(initialLang);
   initLangSwitch();
+
+  // ランキングを非同期で読み込み（表示はloadLanguage内のrenderLeaderboardで行う）
+  loadLeaderboard().then(() => renderLeaderboard());
 
   const countElem = document.getElementById('precure-count');
 
@@ -520,13 +692,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
 /*--------------------------------------------
   スタートボタン：初期UIを隠し、データ読込→開始
+  - セッショントークンも並行して取得
 --------------------------------------------*/
 document.getElementById('start-btn').onclick = () => {
   document.getElementById('start-btn').classList.add('hidden');
   document.getElementById('precure-count')?.classList.add('hidden');
+  document.getElementById('leaderboard-area')?.classList.add('hidden');
   hideLangSwitch();
   document.getElementById('timer').classList.remove('hidden');
-  loadQuizData();
+
+  // データ読込とセッショントークン取得を並行実行
+  Promise.all([
+    fetch('data/precure.json').then(res => res.json()),
+    fetchSessionToken(),
+  ]).then(([data]) => {
+    quizData = data;
+    generateQuestions();
+    questions = shuffleArray(questions); // 全体の出題順をランダムに
+    startQuiz();
+  }).catch(err => console.error('Failed to start quiz:', err));
 };
 
 /*--------------------------------------------
@@ -919,6 +1103,7 @@ function resetToHome() {
   currentQuestion = 0;
   elapsedTime = 0;
   resultTimerSec = null; // 結果確定時間リセット
+  sessionToken = null;
 
   document.getElementById('result-area').innerHTML = '';
   document.getElementById('timer').textContent = formatSeconds(0);
@@ -930,9 +1115,14 @@ function resetToHome() {
   document.getElementById('tweet-btn').classList.add('hidden');
   document.getElementById('question-area').innerHTML = '';
   document.getElementById('choices-area').innerHTML = '';
+  document.getElementById('name-input-area')?.classList.add('hidden');
+  document.getElementById('name-error')?.classList.add('hidden');
 
   // 共有パラメータを消す
   history.replaceState(null, '', location.pathname);
+
+  // ランキングを再表示
+  renderLeaderboard();
 }
 
 /*--------------------------------------------
@@ -1013,10 +1203,11 @@ function answer(selectedChoice) {
 }
 
 /*--------------------------------------------
-  結果表示 & 共有URL生成
+  結果表示 & 共有URL生成 & ランキング判定
   - 詳細結果（各問の○×・時間・正答）
   - 共有URLを作ってツイート誘導
   - 共有ビュー時はツイート非表示／「あそんでみる」に文言変更
+  - ランクインならば名前入力UIを表示
 --------------------------------------------*/
 function endQuiz() {
   clearInterval(timerInterval);
@@ -1122,5 +1313,108 @@ function endQuiz() {
       location.href = location.origin + location.pathname + (currentLang === 'en' ? '?en' : '');
     };
   }
+
+  // ランキング判定（自分のプレイ時のみ、共有ビューでは行わない）
+  const totalTimeCs = Math.round(totalSec * 100);
+  if (!isSharedView && API_BASE_URL && isQualified(correctCount, totalTimeCs)) {
+    showNameInput(correctCount, totalTimeCs);
+  }
+
+  // ランキング表示
+  renderLeaderboard();
+
   showLangSwitch();
+}
+
+/*--------------------------------------------
+  ランキング：名前入力UIの表示と送信処理
+  - 上位20位に入った場合のみ表示
+  - 名前は16文字以内
+  - 送信成功でランキングを即時更新
+--------------------------------------------*/
+function showNameInput(correctCount, totalTimeCs) {
+  const area = document.getElementById('name-input-area');
+  const oldInput = document.getElementById('name-input');
+  const oldSubmitBtn = document.getElementById('name-submit-btn');
+  const errorEl = document.getElementById('name-error');
+
+  if (!area || !oldInput || !oldSubmitBtn) return;
+
+  // イベントリスナーの重複防止のため、先にクローンで差し替える
+  const input = oldInput.cloneNode(true);
+  oldInput.parentNode.replaceChild(input, oldInput);
+
+  const submitBtn = oldSubmitBtn.cloneNode(true);
+  oldSubmitBtn.parentNode.replaceChild(submitBtn, oldSubmitBtn);
+
+  area.classList.remove('hidden');
+  errorEl?.classList.add('hidden');
+  input.value = '';
+  input.focus();
+
+  // 二重送信防止フラグ（非同期の隙間で複数回呼ばれることへの対策）
+  let submitting = false;
+
+  // 送信処理（ボタンクリックまたはEnterキー）
+  const doSubmit = async () => {
+    if (submitting) return;
+
+    const name = input.value.trim();
+
+    // クライアント側バリデーション（16文字＝Unicode文字数で判定）
+    if (!name || [...name].length > 16) {
+      if (errorEl) {
+        errorEl.textContent = t('leaderboard_name_error');
+        errorEl.classList.remove('hidden');
+      }
+      return;
+    }
+
+    // 二重送信防止：フラグ＋UI無効化
+    submitting = true;
+    submitBtn.disabled = true;
+    input.disabled = true;
+
+    // トークンを即座に取得して破棄（同じトークンの再送信を完全に防止）
+    const token = sessionToken;
+    sessionToken = null;
+
+    if (!token) {
+      if (errorEl) {
+        errorEl.textContent = t('leaderboard_submit_error');
+        errorEl.classList.remove('hidden');
+      }
+      submitting = false;
+      submitBtn.disabled = false;
+      input.disabled = false;
+      return;
+    }
+
+    try {
+      const result = await submitScoreWithToken(token, name, correctCount, totalTimeCs);
+
+      if (result.qualified && Array.isArray(result.top20)) {
+        // ランキング更新成功：メモリ上のleaderboardを更新して再描画
+        leaderboard = result.top20;
+        renderLeaderboard();
+      }
+
+      // 名前入力UIを非表示
+      area.classList.add('hidden');
+    } catch (err) {
+      // エラー表示（トークンは消費済みのためリトライ不可）
+      if (errorEl) {
+        errorEl.textContent = t('leaderboard_submit_error');
+        errorEl.classList.remove('hidden');
+      }
+      submitting = false;
+      submitBtn.disabled = false;
+      input.disabled = false;
+    }
+  };
+
+  submitBtn.addEventListener('click', doSubmit);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') doSubmit();
+  });
 }

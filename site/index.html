@@ -8,14 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Kaisei+Decol&family=Noto+Sans+JP:wght@500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/css/style.css" />
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-HRG3S2NVV1"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-
-    gtag('config', 'G-HRG3S2NVV1');
-  </script>
+  <!-- GA4 は config.js の GA4_MEASUREMENT_ID から動的に読み込み -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:site" content="@shota_" />
   <meta name="twitter:creator" content="@shota_" />
@@ -44,6 +37,21 @@
     <div id="question-area"></div>
     <div id="choices-area"></div>
     <div id="result-area"></div>
+
+    <!-- ランキング入力UI（ランクイン時のみ表示） -->
+    <div id="name-input-area" class="hidden">
+      <p id="name-input-message" data-i18n="leaderboard_qualified">ランクイン！なまえをいれてね！</p>
+      <input type="text" id="name-input" maxlength="16" placeholder="" data-i18n="leaderboard_name_placeholder" data-i18n-attr="placeholder" />
+      <button id="name-submit-btn" data-i18n="leaderboard_submit">とうろく</button>
+      <p id="name-error" class="hidden"></p>
+    </div>
+
+    <!-- ランキング表示 -->
+    <div id="leaderboard-area" class="hidden">
+      <h2 id="leaderboard-title" data-i18n="leaderboard_title">🏆ランキング🏆</h2>
+      <div id="leaderboard-list"></div>
+    </div>
+
     <button id="tweet-btn" class="hidden" data-i18n="tweet_btn">けっかをTwitterでシェア！</button>
     <button id="retry-btn" class="hidden" data-i18n="retry_btn">もういちどあそぶ</button>
   </div>
@@ -62,6 +70,8 @@
     </div>
   </footer>
 
+  <!-- 環境別設定（config.js.example をコピーして config.js を作成） -->
+  <script src="config.js"></script>
   <script src="assets/js/script.js"></script>
 </body>
 </html>

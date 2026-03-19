@@ -1,0 +1,65 @@
+#!/bin/bash
+set -euo pipefail
+
+# =============================================================
+# Deploy script for プリキュアオールスターズいえるかなクイズ
+# Usage:
+#   ./deploy.sh          Deploy everything (backend first, then site)
+#   ./deploy.sh site     Deploy frontend to S3 + invalidate CloudFront
+#   ./deploy.sh backend  Deploy backend via SAM (Lambda + API Gateway + DynamoDB)
+# =============================================================
+
+# --- Configuration (fill in your values) ---
+SITE_BUCKET="YOUR_S3_BUCKET_NAME"
+CF_DISTRIBUTION_ID="YOUR_CLOUDFRONT_DISTRIBUTION_ID"
+
+# --- Functions ---
+
+deploy_backend() {
+  echo "========================================="
+  echo " Building & deploying backend (SAM)..."
+  echo "========================================="
+  sam build
+  sam deploy
+  echo "Backend deployment complete."
+  echo ""
+}
+
+deploy_site() {
+  echo "========================================="
+  echo " Deploying site to S3..."
+  echo "========================================="
+  aws s3 sync site/ "s3://${SITE_BUCKET}" \
+    --exclude "*.example" \
+    --delete
+  echo ""
+
+  echo "Invalidating CloudFront cache..."
+  aws cloudfront create-invalidation \
+    --distribution-id "${CF_DISTRIBUTION_ID}" \
+    --paths "/*" \
+    --output text
+  echo "Site deployment complete."
+  echo ""
+}
+
+# --- Main ---
+
+case "${1:-all}" in
+  site)
+    deploy_site
+    ;;
+  backend)
+    deploy_backend
+    ;;
+  all)
+    deploy_backend
+    deploy_site
+    ;;
+  *)
+    echo "Usage: $0 {site|backend|all}"
+    exit 1
+    ;;
+esac
+
+echo "Done!"

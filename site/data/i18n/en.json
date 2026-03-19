@@ -46,5 +46,14 @@
   "result_score_time_html": "<h2>Score: {{correct}}/10<br>Time: {{sec}} seconds</h2>",
   "result_praise_speed_html": "<p>{{praise}}<br>{{speed}}</p>",
   "og_locale": "en_US",
-  "tweet_result": "I got {{correct}}/{{total}} correct on #プリキュアオールスターズいえるかなクイズ! My time was {{time}} seconds!"
+  "tweet_result": "I got {{correct}}/{{total}} correct on #プリキュアオールスターズいえるかなクイズ! My time was {{time}} seconds!",
+  "leaderboard_title": "🏆Perfect Score Leaderboard🏆",
+  "leaderboard_rank": "Rank",
+  "leaderboard_name": "Name",
+  "leaderboard_time": "Time",
+  "leaderboard_qualified": "🎉Perfect score! You made the leaderboard! Enter your name!",
+  "leaderboard_name_placeholder": "Name (16 chars max)",
+  "leaderboard_submit": "Submit",
+  "leaderboard_name_error": "Please enter a name (16 characters max)",
+  "leaderboard_submit_error": "Submission failed. Please try again."
 }

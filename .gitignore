@@ -1,1 +1,23 @@
-/.resources/
+# resources
+.resources
+
+# IDE
+.vscode/
+.idea/
+
+# Deploy configuration (contains actual credentials/values)
+deploy.sh
+deploy.ps1
+samconfig.toml
+
+# Frontend configuration (contains environment-specific values)
+site/config.js
+
+# SAM build artifacts
+.aws-sam/
+
+# Node.js (Lambda dependencies if installed locally)
+node_modules/
+
+# Temporary files
+*.zip
