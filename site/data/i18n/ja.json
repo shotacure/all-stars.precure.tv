@@ -46,5 +46,14 @@
   "result_score_time_html": "<h2>せいかいしたかず：{{correct}}/10<br>かかったじかん：{{sec}}びょう</h2>",
   "result_praise_speed_html": "<p>{{praise}}<br>{{speed}}</p>",
   "og_locale": "ja_JP",
-  "tweet_result": "#プリキュアオールスターズいえるかなクイズ で{{correct}}/{{total}}問正解、タイムは{{time}}秒でした！"
+  "tweet_result": "#プリキュアオールスターズいえるかなクイズ で{{correct}}/{{total}}問正解、タイムは{{time}}秒でした！",
+  "leaderboard_title": "🏆パーフェクトランキング🏆",
+  "leaderboard_rank": "じゅんい",
+  "leaderboard_name": "なまえ",
+  "leaderboard_time": "タイム",
+  "leaderboard_qualified": "🎉パーフェクトでランクイン！なまえをいれてね！",
+  "leaderboard_name_placeholder": "なまえ（16もじいない）",
+  "leaderboard_submit": "とうろく",
+  "leaderboard_name_error": "なまえをいれてね（16もじいない）",
+  "leaderboard_submit_error": "とうろくできませんでした。もういちどためしてね。"
 }

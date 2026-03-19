@@ -66,6 +66,12 @@ button:hover {
   transform: scale(1.05);
 }
 
+button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .choice {
   width: 90%;
   margin: 8px auto;
@@ -135,6 +141,90 @@ button:hover {
 
 .hidden {
   display: none;
+}
+
+/* ランキング名前入力エリア */
+#name-input-area {
+  margin: 16px 0;
+  padding: 16px;
+  background-color: #fff0f5;
+  border-radius: 12px;
+  border: 2px solid #ff80bf;
+}
+
+#name-input-message {
+  font-family: 'Kaisei Decol', serif;
+  color: #ff3366;
+  font-size: 1.1em;
+  margin: 0 0 10px;
+}
+
+#name-input {
+  font-size: 1em;
+  padding: 8px 12px;
+  border: 2px solid #ff99cc;
+  border-radius: 8px;
+  width: 60%;
+  max-width: 240px;
+  text-align: center;
+  outline: none;
+}
+
+#name-input:focus {
+  border-color: #ff3399;
+  box-shadow: 0 0 6px rgba(255, 51, 153, 0.3);
+}
+
+#name-error {
+  color: #ff3333;
+  font-size: 0.9em;
+  margin: 6px 0 0;
+}
+
+/* ランキング表示エリア */
+#leaderboard-area {
+  margin: 20px 0;
+}
+
+#leaderboard-title {
+  font-family: 'Kaisei Decol', serif;
+  color: #ff66b2;
+  font-size: 1.3em;
+  margin-bottom: 10px;
+}
+
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+
+.leaderboard-table thead {
+  background-color: #ff80bf;
+  color: white;
+}
+
+.leaderboard-table th,
+.leaderboard-table td {
+  padding: 8px 6px;
+  text-align: center;
+  border-bottom: 1px solid #ffcce0;
+}
+
+.leaderboard-table tbody tr:nth-child(odd) {
+  background-color: #fff0f5;
+}
+
+.leaderboard-table tbody tr:nth-child(even) {
+  background-color: #fff8fb;
+}
+
+/* トップ3の行にアクセントカラー */
+.leaderboard-table tbody tr:nth-child(1) td:first-child,
+.leaderboard-table tbody tr:nth-child(2) td:first-child,
+.leaderboard-table tbody tr:nth-child(3) td:first-child {
+  font-weight: bold;
+  color: #ff3366;
 }
 
 /* フッターのスタイル */
@@ -209,6 +299,19 @@ button:hover {
   #pageFooter {
     padding: 15px;
     font-size: 0.8em;
+  }
+
+  #name-input {
+    width: 70%;
+  }
+
+  .leaderboard-table {
+    font-size: 0.85em;
+  }
+
+  .leaderboard-table th,
+  .leaderboard-table td {
+    padding: 6px 4px;
   }
 }
 

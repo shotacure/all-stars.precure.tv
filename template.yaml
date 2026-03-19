@@ -1,0 +1,113 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  プリキュアオールスターズいえるかなクイズ - Backend API
+  Session management and leaderboard system
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 10
+    MemorySize: 128
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref LeaderboardTable
+        SITE_BUCKET: !Ref SiteBucketName
+        SESSION_SECRET: !Ref SessionSecret
+        CORS_ORIGIN: !Ref CorsOrigin
+
+Parameters:
+  SiteBucketName:
+    Type: String
+    Description: S3 bucket name for the site (used to write leaderboard.json)
+  SessionSecret:
+    Type: String
+    Description: Secret key for HMAC session tokens (min 32 chars)
+    NoEcho: true
+  CorsOrigin:
+    Type: String
+    Description: Allowed CORS origin (e.g. https://example.com)
+    Default: "*"
+
+Resources:
+  # --- API Gateway (HTTP API) ---
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: prod
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref CorsOrigin
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+        AllowHeaders:
+          - Content-Type
+        MaxAge: 86400
+      # スロットリングは API Gateway のデフォルト上限（10,000 rps）を利用
+      # 必要に応じてAWSコンソールから個別に調整可能
+
+  # --- Lambda: Session ---
+  SessionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: allstars-session
+      Handler: index.handler
+      CodeUri: lambda/session/
+      Events:
+        GetSession:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /api/session
+            Method: GET
+
+  # --- Lambda: Score ---
+  # ハイスコア送信は稀な操作のため、同時実行数を厳しく制限
+  ScoreFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: allstars-score
+      Handler: index.handler
+      CodeUri: lambda/score/
+      ReservedConcurrentExecutions: 2
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref LeaderboardTable
+        - S3CrudPolicy:
+            BucketName: !Ref SiteBucketName
+      Events:
+        PostScore:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /api/score
+            Method: POST
+
+  # --- DynamoDB ---
+  # leaderboard レコードと使用済みトークンを同一テーブルに格納
+  # 使用済みトークンは TTL で自動削除される
+  LeaderboardTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: allstars-leaderboard
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
+  LeaderboardTableName:
+    Description: DynamoDB table name
+    Value: !Ref LeaderboardTable

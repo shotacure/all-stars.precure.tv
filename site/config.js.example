@@ -1,0 +1,19 @@
+/**
+ * フロントエンド設定ファイル
+ *
+ * このファイルをコピーして config.js を作成し、実際の値を設定してください。
+ *   cp config.js.example config.js
+ *
+ * config.js は .gitignore に含まれているため、リポジトリには含まれません。
+ */
+
+window.ALLSTARS_CONFIG = {
+  // バックエンドAPI のベースURL（末尾スラッシュなし）
+  // sam deploy 後に CloudFormation Outputs の ApiEndpoint を設定する
+  // 例: 'https://xxxxxxxxxx.execute-api.ap-northeast-1.amazonaws.com/prod'
+  API_BASE_URL: '',
+
+  // Google Analytics 4 測定ID（例: 'G-XXXXXXXXXX'）
+  // 空文字の場合はGA4を読み込まない
+  GA4_MEASUREMENT_ID: '',
+};

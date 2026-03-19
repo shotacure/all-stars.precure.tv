@@ -1,0 +1,6 @@
+{
+  "name": "allstars-session",
+  "version": "1.1.0",
+  "type": "module",
+  "description": "Session token issuer for プリキュアオールスターズいえるかなクイズ"
+}

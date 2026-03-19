@@ -1,0 +1,60 @@
+# =============================================================
+# Deploy script for プリキュアオールスターズいえるかなクイズ (PowerShell)
+# Usage:
+#   .\deploy.ps1              Deploy everything (backend first, then site)
+#   .\deploy.ps1 -Target site     Deploy frontend to S3 + invalidate CloudFront
+#   .\deploy.ps1 -Target backend  Deploy backend via SAM
+# =============================================================
+
+param(
+    [ValidateSet("all", "site", "backend")]
+    [string]$Target = "all"
+)
+
+$ErrorActionPreference = "Stop"
+
+# --- Configuration (fill in your values) ---
+$SITE_BUCKET = "YOUR_S3_BUCKET_NAME"
+$CF_DISTRIBUTION_ID = "YOUR_CLOUDFRONT_DISTRIBUTION_ID"
+
+# --- Functions ---
+
+function Deploy-Backend {
+    Write-Host "=========================================" -ForegroundColor Cyan
+    Write-Host " Building & deploying backend (SAM)..."  -ForegroundColor Cyan
+    Write-Host "=========================================" -ForegroundColor Cyan
+    sam build
+    if ($LASTEXITCODE -ne 0) { throw "sam build failed" }
+    sam deploy
+    if ($LASTEXITCODE -ne 0) { throw "sam deploy failed" }
+    Write-Host "Backend deployment complete.`n" -ForegroundColor Green
+}
+
+function Deploy-Site {
+    Write-Host "=========================================" -ForegroundColor Cyan
+    Write-Host " Deploying site to S3..."                 -ForegroundColor Cyan
+    Write-Host "=========================================" -ForegroundColor Cyan
+    aws s3 sync site/ "s3://$SITE_BUCKET" `
+        --exclude "*.example" `
+        --delete
+    if ($LASTEXITCODE -ne 0) { throw "s3 sync failed" }
+    Write-Host ""
+
+    Write-Host "Invalidating CloudFront cache..."
+    aws cloudfront create-invalidation `
+        --distribution-id $CF_DISTRIBUTION_ID `
+        --paths "/*" `
+        --output text
+    if ($LASTEXITCODE -ne 0) { throw "CloudFront invalidation failed" }
+    Write-Host "Site deployment complete.`n" -ForegroundColor Green
+}
+
+# --- Main ---
+
+switch ($Target) {
+    "site"    { Deploy-Site }
+    "backend" { Deploy-Backend }
+    "all"     { Deploy-Backend; Deploy-Site }
+}
+
+Write-Host "Done!" -ForegroundColor Green
