@@ -6,7 +6,7 @@ Description: >
 
 Globals:
   Function:
-    Runtime: nodejs20.x
+    Runtime: nodejs22.x
     Timeout: 10
     MemorySize: 128
     Environment:
