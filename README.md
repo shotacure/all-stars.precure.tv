@@ -20,7 +20,7 @@
 │           ├── ja.json           # 日本語
 │           └── en.json           # 英語
 │
-├── lambda/                       # バックエンド（AWS Lambda）
+├── lambda/                       # バックエンド（AWS Lambda / Node.js 22.x）
 │   ├── session/
 │   │   ├── index.mjs             # セッショントークン発行
 │   │   └── package.json
