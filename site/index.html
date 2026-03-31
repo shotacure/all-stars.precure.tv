@@ -72,6 +72,10 @@
 
   <!-- 環境別設定（config.js.example をコピーして config.js を作成） -->
   <script src="config.js"></script>
+  <!-- iモードフラグ検出（script.js より先に設定） -->
+  <script>window.IMODE = new URLSearchParams(location.search).has('i');</script>
   <script src="assets/js/script.js"></script>
+  <!-- iモード風表示（/?i で発動、script.js の関数をパッチ） -->
+  <script src="assets/js/imode.js"></script>
 </body>
 </html>
