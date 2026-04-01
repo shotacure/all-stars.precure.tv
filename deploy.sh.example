@@ -13,6 +13,24 @@ set -euo pipefail
 SITE_BUCKET="YOUR_S3_BUCKET_NAME"
 CF_DISTRIBUTION_ID="YOUR_CLOUDFRONT_DISTRIBUTION_ID"
 
+# AWS プロファイル設定
+# ~/.aws/credentials に依存せず、プロジェクトごとにプロファイルを切り替え可能
+# 空文字の場合はデフォルトプロファイルを使用
+AWS_PROFILE_NAME=""
+
+# --- Profile setup ---
+# 環境変数 AWS_PROFILE をクリア（他ツールやシェル設定の干渉を防止）
+# sam build は認証不要だが、環境変数に AWS_PROFILE があるとプロファイルを解決しようとして失敗する
+unset AWS_PROFILE
+
+# プロファイル指定がある場合のみ --profile オプションを構築
+# sam deploy / aws コマンドにだけ渡し、sam build には付けない
+PROFILE_OPT=""
+if [ -n "${AWS_PROFILE_NAME}" ]; then
+  PROFILE_OPT="--profile ${AWS_PROFILE_NAME}"
+  echo "Using AWS profile: ${AWS_PROFILE_NAME}"
+fi
+
 # --- Functions ---
 
 deploy_backend() {
@@ -20,7 +38,7 @@ deploy_backend() {
   echo " Building & deploying backend (SAM)..."
   echo "========================================="
   sam build
-  sam deploy
+  sam deploy ${PROFILE_OPT}
   echo "Backend deployment complete."
   echo ""
 }
@@ -31,14 +49,17 @@ deploy_site() {
   echo "========================================="
   aws s3 sync site/ "s3://${SITE_BUCKET}" \
     --exclude "*.example" \
-    --delete
+    --exclude "leaderboard.json" \
+    --delete \
+    ${PROFILE_OPT}
   echo ""
 
   echo "Invalidating CloudFront cache..."
   aws cloudfront create-invalidation \
     --distribution-id "${CF_DISTRIBUTION_ID}" \
     --paths "/*" \
-    --output text
+    --output text \
+    ${PROFILE_OPT}
   echo "Site deployment complete."
   echo ""
 }
