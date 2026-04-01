@@ -28,6 +28,14 @@ Parameters:
     Type: String
     Description: Allowed CORS origin (e.g. https://example.com)
     Default: "*"
+  AdminEmail:
+    Type: String
+    Description: Admin email address for rank-in notifications (empty to disable)
+    Default: ""
+  SenderEmail:
+    Type: String
+    Description: SES verified sender email address (empty to disable notifications)
+    Default: ""
 
 Resources:
   # --- API Gateway (HTTP API) ---
@@ -72,11 +80,28 @@ Resources:
       Handler: index.handler
       CodeUri: lambda/score/
       ReservedConcurrentExecutions: 2
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref LeaderboardTable
+          SITE_BUCKET: !Ref SiteBucketName
+          SESSION_SECRET: !Ref SessionSecret
+          CORS_ORIGIN: !Ref CorsOrigin
+          # ランクイン通知メールの設定（空文字の場合は通知無効）
+          ADMIN_EMAIL: !Ref AdminEmail
+          SENDER_EMAIL: !Ref SenderEmail
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref LeaderboardTable
         - S3CrudPolicy:
             BucketName: !Ref SiteBucketName
+        # SES によるランクイン通知メール送信権限
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: "*"
       Events:
         PostScore:
           Type: HttpApi
@@ -86,8 +111,9 @@ Resources:
             Method: POST
 
   # --- DynamoDB ---
-  # leaderboard レコードと使用済みトークンを同一テーブルに格納
-  # 使用済みトークンは TTL で自動削除される
+  # pk="leaderboard" : ランキング本体（top20 配列 + clientInfo）
+  # pk="audits"      : 監査ログ（logs 配列、最大100件、30日で除去）
+  # pk="token:*"     : 使用済みトークン（TTL で自動削除）
   LeaderboardTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain

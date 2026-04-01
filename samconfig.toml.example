@@ -1,6 +1,10 @@
 # SAM CLI configuration file
 # Copy to samconfig.toml and fill in your values:
 #   cp samconfig.toml.example samconfig.toml
+#
+# AWS プロファイルの設定はこのファイルでは行いません。
+# sam build が samconfig.toml の profile を読み込んでエラーになるため、
+# プロファイルの指定は deploy.sh / deploy.ps1 の AWS_PROFILE_NAME で一元管理します。
 
 version = 0.1
 
@@ -13,4 +17,4 @@ region = "ap-northeast-1"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
 resolve_s3 = true
-parameter_overrides = "SiteBucketName=\"YOUR_S3_BUCKET_NAME\" SessionSecret=\"YOUR_SECRET_KEY_MIN_32_CHARS\" CorsOrigin=\"https://your-domain.example.com\""
+parameter_overrides = "SiteBucketName=\"YOUR_S3_BUCKET_NAME\" SessionSecret=\"YOUR_SECRET_KEY_MIN_32_CHARS\" CorsOrigin=\"https://your-domain.example.com\" AdminEmail=\"admin@example.com\" SenderEmail=\"noreply@your-domain.example.com\""

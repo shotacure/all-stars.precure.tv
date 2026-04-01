@@ -6,6 +6,7 @@ import {
   PutCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 
 // --- Configuration ---
 
@@ -13,6 +14,8 @@ const SECRET = process.env.SESSION_SECRET;
 const TABLE_NAME = process.env.TABLE_NAME;
 const SITE_BUCKET = process.env.SITE_BUCKET;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "";
+const SENDER_EMAIL = process.env.SENDER_EMAIL || "";
 
 const MAX_NAME_LENGTH = 16;
 const TOP_N = 20;
@@ -26,9 +29,12 @@ const TOKEN_EXPIRY_MS = 600_000;
 const TOKEN_TTL_SECONDS = Math.ceil((TOKEN_EXPIRY_MS * 2) / 1000);
 // 合計タイムの上限（センチ秒）：655.35秒 = 65535cs（フロント側と同じ上限）
 const MAX_TOTAL_TIME_CS = 65535;
+// 監査ログの DynamoDB TTL（秒）：30日間保持
+const AUDIT_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const s3 = new S3Client({});
+const ses = new SESv2Client({});
 
 const headers = {
   "Content-Type": "application/json",
@@ -205,6 +211,259 @@ function rankEntry(a, b) {
   return a.totalTimeCs - b.totalTimeCs;
 }
 
+/**
+ * API Gateway HTTP API の event オブジェクトからクライアント情報を抽出
+ * 荒らし対策の監査ログ・管理者通知・ISPログ照会に使用
+ * @param {object} event - API Gateway イベントオブジェクト
+ * @returns {object} クライアント情報
+ */
+function extractClientInfo(event) {
+  const httpCtx = event.requestContext?.http || {};
+  const reqCtx = event.requestContext || {};
+  const hdrs = event.headers || {};
+
+  return {
+    // クライアント識別情報
+    sourceIp: httpCtx.sourceIp || null,
+    userAgent: httpCtx.userAgent || null,
+    xForwardedFor: hdrs["x-forwarded-for"] || null,
+    acceptLanguage: hdrs["accept-language"] || null,
+    referer: hdrs["referer"] || hdrs["Referer"] || null,
+    cloudFrontViewerCountry:
+      hdrs["cloudfront-viewer-country"] ||
+      hdrs["CloudFront-Viewer-Country"] ||
+      null,
+    origin: hdrs["origin"] || null,
+    secFetchSite: hdrs["sec-fetch-site"] || null,
+    // リクエストメタデータ（ISPログ照会用）
+    requestTime: reqCtx.time || null,
+    requestTimeEpoch: reqCtx.timeEpoch || null,
+    domainName: reqCtx.domainName || null,
+    httpMethod: httpCtx.method || null,
+    path: httpCtx.path || null,
+    protocol: httpCtx.protocol || null,
+    apiRequestId: reqCtx.requestId || null,
+  };
+}
+
+/**
+ * 監査ログを単一レコード（pk: "audits"）の配列に追記
+ * - 30 日を超えた古いエントリは書き込み時に自動除去
+ * - 最大 100 件まで保持（超過分は古い順に削除）
+ * - 楽観的ロックで同時書き込みの競合を防止
+ * @param {string} nonce - セッショントークンの nonce（一意キー）
+ * @param {object} details - 記録する詳細情報
+ */
+async function writeAuditLog(nonce, details) {
+  try {
+    // 現在の監査ログレコードを取得
+    const getResult = await ddb.send(
+      new GetCommand({ TableName: TABLE_NAME, Key: { pk: "audits" } })
+    );
+    const current = getResult.Item || { pk: "audits", logs: [], version: 0 };
+    const logs = current.logs || [];
+    const version = current.version || 0;
+
+    // 30 日超えのエントリを除去
+    const cutoff = new Date(Date.now() - AUDIT_TTL_SECONDS * 1000).toISOString();
+    const pruned = logs.filter((e) => e.submittedAt > cutoff);
+
+    // 新しいエントリを追加
+    const newEntry = { nonce, ...details };
+    const merged = [...pruned, newEntry];
+
+    // 最大 100 件に制限（古い順に削除）
+    const capped = merged.length > 100 ? merged.slice(-100) : merged;
+
+    // 楽観的ロックで書き込み
+    await ddb.send(
+      new PutCommand({
+        TableName: TABLE_NAME,
+        Item: { pk: "audits", logs: capped, version: version + 1 },
+        ConditionExpression: "attribute_not_exists(version) OR version = :v",
+        ExpressionAttributeValues: { ":v": version },
+      })
+    );
+  } catch (err) {
+    // 監査ログの書き込み失敗はスコア送信自体をブロックしない
+    console.error("Failed to write audit log:", err);
+  }
+}
+
+/**
+ * ランクイン通知メールの HTML を生成
+ * 登録者の情報とクライアント情報、最新の順位表をすべて含む
+ * @param {object} entry - ランクイン者の情報
+ * @param {object} clientInfo - クライアント情報
+ * @param {Array} top20 - 最新の順位表
+ * @returns {string} HTML 文字列
+ */
+function buildNotificationHtml(entry, clientInfo, top20) {
+  const timeStr = (entry.totalTimeCs / 100).toFixed(2);
+
+  // ISP照会用：リクエスト日時をJSTに変換
+  const requestJst = clientInfo.requestTimeEpoch
+    ? new Date(clientInfo.requestTimeEpoch).toLocaleString("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit",
+        fractionalSecondDigits: 3,
+      })
+    : clientInfo.requestTime || "(不明)";
+
+  // ISP照会用：接続先URI
+  const requestUri = (clientInfo.domainName && clientInfo.path)
+    ? `https://${clientInfo.domainName}${clientInfo.path}`
+    : "(不明)";
+
+  // クライアント情報テーブル行の生成（リクエストメタデータはISP照会欄に分離するため除外）
+  const metaKeys = new Set([
+    "requestTime", "requestTimeEpoch", "domainName",
+    "httpMethod", "path", "protocol", "apiRequestId",
+  ]);
+  const infoRows = Object.entries(clientInfo)
+    .filter(([key]) => !metaKeys.has(key))
+    .map(
+      ([key, val]) =>
+        `<tr><td style="padding:4px 12px 4px 0;font-weight:bold;white-space:nowrap;color:#555;">${escapeHtml(key)}</td>` +
+        `<td style="padding:4px 0;word-break:break-all;">${escapeHtml(String(val ?? "(なし)"))}</td></tr>`
+    )
+    .join("");
+
+  // 順位表行の生成
+  const rankRows = top20
+    .map((e, i) => {
+      const isCurrent =
+        e.name === entry.name && e.timestamp === entry.timestamp;
+      const bg = isCurrent ? "#fff3cd" : i % 2 === 0 ? "#f8f9fa" : "#ffffff";
+      const bold = isCurrent ? "font-weight:bold;" : "";
+      const t = (e.totalTimeCs / 100).toFixed(2);
+      return (
+        `<tr style="background:${bg};${bold}">` +
+        `<td style="padding:4px 8px;text-align:center;">${i + 1}</td>` +
+        `<td style="padding:4px 8px;">${escapeHtml(e.name)}</td>` +
+        `<td style="padding:4px 8px;text-align:right;">${t}s</td>` +
+        `<td style="padding:4px 8px;color:#999;font-size:12px;">${e.timestamp || ""}</td>` +
+        `</tr>`
+      );
+    })
+    .join("");
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#333;max-width:700px;margin:0 auto;padding:16px;">
+
+<h2 style="color:#e91e8c;border-bottom:2px solid #e91e8c;padding-bottom:8px;">
+  &#x1f496; プリキュアオールスターズいえるかなクイズ ランクイン通知
+</h2>
+
+<h3 style="margin-top:24px;">登録者情報</h3>
+<table style="border-collapse:collapse;width:100%;margin-bottom:16px;">
+  <tr><td style="padding:4px 12px 4px 0;font-weight:bold;color:#555;">名前</td>
+      <td style="padding:4px 0;">${escapeHtml(entry.name)}</td></tr>
+  <tr><td style="padding:4px 12px 4px 0;font-weight:bold;color:#555;">正解数</td>
+      <td style="padding:4px 0;">${entry.correct} / ${TOTAL_QUESTIONS}</td></tr>
+  <tr><td style="padding:4px 12px 4px 0;font-weight:bold;color:#555;">タイム</td>
+      <td style="padding:4px 0;">${timeStr}秒</td></tr>
+  <tr><td style="padding:4px 12px 4px 0;font-weight:bold;color:#555;">登録日時</td>
+      <td style="padding:4px 0;">${entry.timestamp}</td></tr>
+</table>
+
+<h3>クライアント情報</h3>
+<table style="border-collapse:collapse;width:100%;margin-bottom:16px;">
+  ${infoRows}
+</table>
+
+<h3 style="color:#c00;">ISPログ照会用情報</h3>
+<p style="font-size:13px;color:#666;margin-bottom:8px;">
+  荒らし行為の通報時にISPへ提示する情報です。以下をそのままコピーして使用できます。
+</p>
+<table style="border-collapse:collapse;width:100%;margin-bottom:16px;border:1px solid #f5c6cb;background:#fff5f5;">
+  <tr><td style="padding:6px 12px 6px 0;font-weight:bold;white-space:nowrap;color:#555;">アクセス日時 (JST)</td>
+      <td style="padding:6px 0;font-family:monospace;">${escapeHtml(requestJst)}</td></tr>
+  <tr><td style="padding:6px 12px 6px 0;font-weight:bold;white-space:nowrap;color:#555;">送信元IPアドレス</td>
+      <td style="padding:6px 0;font-family:monospace;">${escapeHtml(String(clientInfo.sourceIp ?? "(不明)"))}</td></tr>
+  <tr><td style="padding:6px 12px 6px 0;font-weight:bold;white-space:nowrap;color:#555;">接続先</td>
+      <td style="padding:6px 0;font-family:monospace;">${escapeHtml(String(clientInfo.httpMethod ?? "POST"))} ${escapeHtml(requestUri)} (port 443)</td></tr>
+  <tr><td style="padding:6px 12px 6px 0;font-weight:bold;white-space:nowrap;color:#555;">プロトコル</td>
+      <td style="padding:6px 0;font-family:monospace;">HTTPS (${escapeHtml(String(clientInfo.protocol ?? "HTTP/1.1"))})</td></tr>
+  <tr><td style="padding:6px 12px 6px 0;font-weight:bold;white-space:nowrap;color:#555;">X-Forwarded-For</td>
+      <td style="padding:6px 0;font-family:monospace;">${escapeHtml(String(clientInfo.xForwardedFor ?? "(なし)"))}</td></tr>
+  <tr><td style="padding:6px 12px 6px 0;font-weight:bold;white-space:nowrap;color:#555;">API Gateway Request ID</td>
+      <td style="padding:6px 0;font-family:monospace;font-size:12px;">${escapeHtml(String(clientInfo.apiRequestId ?? "(なし)"))}</td></tr>
+</table>
+
+<h3>最新ランキング TOP ${top20.length}</h3>
+<table style="border-collapse:collapse;width:100%;border:1px solid #dee2e6;">
+  <thead>
+    <tr style="background:#e91e8c;color:#fff;">
+      <th style="padding:6px 8px;text-align:center;">順位</th>
+      <th style="padding:6px 8px;text-align:left;">名前</th>
+      <th style="padding:6px 8px;text-align:right;">タイム</th>
+      <th style="padding:6px 8px;text-align:left;font-size:12px;">登録日時</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${rankRows}
+  </tbody>
+</table>
+
+<p style="margin-top:24px;color:#999;font-size:12px;">
+  このメールは プリキュアオールスターズいえるかなクイズ のランクイン通知です。
+</p>
+
+</body>
+</html>`;
+}
+
+/**
+ * HTML エスケープ（XSS 防止）
+ */
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * 管理者にランクイン通知メールを送信（SES v2）
+ * ADMIN_EMAIL / SENDER_EMAIL が未設定の場合はスキップ
+ * メール送信の失敗はスコア登録処理をブロックしない
+ * @param {object} entry - ランクイン者の情報
+ * @param {object} clientInfo - クライアント情報
+ * @param {Array} top20 - 最新の順位表
+ */
+async function sendAdminNotification(entry, clientInfo, top20) {
+  if (!ADMIN_EMAIL || !SENDER_EMAIL) return;
+
+  const timeStr = (entry.totalTimeCs / 100).toFixed(2);
+  const subject = `[いえるかなクイズ] ランクイン: ${entry.name} (${timeStr}s)`;
+  const htmlBody = buildNotificationHtml(entry, clientInfo, top20);
+
+  try {
+    await ses.send(
+      new SendEmailCommand({
+        FromEmailAddress: SENDER_EMAIL,
+        Destination: { ToAddresses: [ADMIN_EMAIL] },
+        Content: {
+          Simple: {
+            Subject: { Data: subject, Charset: "UTF-8" },
+            Body: {
+              Html: { Data: htmlBody, Charset: "UTF-8" },
+            },
+          },
+        },
+      })
+    );
+  } catch (err) {
+    // メール送信失敗はスコア登録の成功に影響させない
+    console.error("Failed to send admin notification:", err);
+  }
+}
+
 // --- Handler ---
 
 export const handler = async (event) => {
@@ -216,6 +475,9 @@ export const handler = async (event) => {
   }
 
   const { token, name: rawName, correct, totalTimeCs, resultBinary } = body;
+
+  // リクエストからクライアント情報を抽出（荒らし対策）
+  const clientInfo = extractClientInfo(event);
 
   // 1. セッショントークンの署名・有効期限・タイム整合性を検証
   const tokenResult = verifyToken(token, totalTimeCs);
@@ -240,7 +502,17 @@ export const handler = async (event) => {
     return response(400, { error: "Invalid score data" });
   }
 
-  // 5. 現在のランキングを DynamoDB から読み込み
+  // 5. 監査ログを書き込み（ランクイン有無にかかわらず全送信を記録）
+  await writeAuditLog(tokenResult.nonce, {
+    name,
+    correct,
+    totalTimeCs,
+    resultBinary: resultBinary || "",
+    clientInfo,
+    submittedAt: new Date().toISOString(),
+  });
+
+  // 6. 現在のランキングを DynamoDB から読み込み
   const getResult = await ddb.send(
     new GetCommand({ TableName: TABLE_NAME, Key: { pk: "leaderboard" } })
   );
@@ -249,13 +521,15 @@ export const handler = async (event) => {
   const top20 = current.top20 || [];
   const version = current.version || 0;
 
-  // 6. ランクイン判定
+  // 7. ランクイン判定
   const newEntry = {
     name,
     correct,
     totalTimeCs,
     resultBinary: resultBinary || "",
     timestamp: new Date().toISOString(),
+    // クライアント情報は DynamoDB にのみ保持（公開 JSON には含めない）
+    clientInfo,
   };
 
   const merged = [...top20, newEntry].sort(rankEntry).slice(0, TOP_N);
@@ -265,10 +539,10 @@ export const handler = async (event) => {
   );
 
   if (!qualified) {
-    return response(200, { qualified: false, top20 });
+    return response(200, { qualified: false, top20: stripClientInfo(top20) });
   }
 
-  // 7. 楽観的ロックで DynamoDB に書き込み
+  // 8. 楽観的ロックで DynamoDB に書き込み
   try {
     await ddb.send(
       new PutCommand({
@@ -285,9 +559,11 @@ export const handler = async (event) => {
     throw err;
   }
 
-  // 8. ランキング JSON を S3 に書き出し（CloudFront経由で配信）
+  // 9. ランキング JSON を S3 に書き出し（CloudFront経由で配信）
+  //    公開用 JSON にはクライアント情報を含めない
+  const publicTop20 = stripClientInfo(merged);
   const leaderboardJson = JSON.stringify(
-    { updatedAt: new Date().toISOString(), top20: merged },
+    { updatedAt: new Date().toISOString(), top20: publicTop20 },
     null,
     2
   );
@@ -302,5 +578,18 @@ export const handler = async (event) => {
     })
   );
 
-  return response(200, { qualified: true, top20: merged });
+  // 10. 管理者にランクイン通知メールを送信（非同期、失敗しても登録は成功）
+  await sendAdminNotification(newEntry, clientInfo, merged);
+
+  return response(200, { qualified: true, top20: publicTop20 });
 };
+
+/**
+ * 公開用にクライアント情報を除去したランキング配列を返す
+ * leaderboard.json や API レスポンスにはクライアント情報を含めない
+ * @param {Array} entries - ランキングエントリ配列
+ * @returns {Array} clientInfo を除去した配列
+ */
+function stripClientInfo(entries) {
+  return entries.map(({ clientInfo: _ci, ...rest }) => rest);
+}

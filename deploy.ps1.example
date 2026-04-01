@@ -17,6 +17,24 @@ $ErrorActionPreference = "Stop"
 $SITE_BUCKET = "YOUR_S3_BUCKET_NAME"
 $CF_DISTRIBUTION_ID = "YOUR_CLOUDFRONT_DISTRIBUTION_ID"
 
+# AWS プロファイル設定
+# ~/.aws/credentials に依存せず、プロジェクトごとにプロファイルを切り替え可能
+# 空文字の場合はデフォルトプロファイルを使用
+$AWS_PROFILE_NAME = ""
+
+# --- Profile setup ---
+# 環境変数 AWS_PROFILE をクリア（以前のスクリプトや他ツールが設定した値の干渉を防止）
+# sam build は認証不要だが、環境変数に AWS_PROFILE があるとプロファイルを解決しようとして失敗する
+$env:AWS_PROFILE = $null
+
+# プロファイル指定がある場合のみ --profile オプションを構築
+# sam deploy / aws コマンドにだけ渡し、sam build には付けない
+$PROFILE_ARGS = @()
+if ($AWS_PROFILE_NAME -ne "") {
+    $PROFILE_ARGS = @("--profile", $AWS_PROFILE_NAME)
+    Write-Host "Using AWS profile: $AWS_PROFILE_NAME" -ForegroundColor Yellow
+}
+
 # --- Functions ---
 
 function Deploy-Backend {
@@ -25,7 +43,7 @@ function Deploy-Backend {
     Write-Host "=========================================" -ForegroundColor Cyan
     sam build
     if ($LASTEXITCODE -ne 0) { throw "sam build failed" }
-    sam deploy
+    sam deploy @PROFILE_ARGS
     if ($LASTEXITCODE -ne 0) { throw "sam deploy failed" }
     Write-Host "Backend deployment complete.`n" -ForegroundColor Green
 }
@@ -36,7 +54,9 @@ function Deploy-Site {
     Write-Host "=========================================" -ForegroundColor Cyan
     aws s3 sync site/ "s3://$SITE_BUCKET" `
         --exclude "*.example" `
-        --delete
+        --exclude "leaderboard.json" `
+        --delete `
+        @PROFILE_ARGS
     if ($LASTEXITCODE -ne 0) { throw "s3 sync failed" }
     Write-Host ""
 
@@ -44,7 +64,8 @@ function Deploy-Site {
     aws cloudfront create-invalidation `
         --distribution-id $CF_DISTRIBUTION_ID `
         --paths "/*" `
-        --output text
+        --output text `
+        @PROFILE_ARGS
     if ($LASTEXITCODE -ne 0) { throw "CloudFront invalidation failed" }
     Write-Host "Site deployment complete.`n" -ForegroundColor Green
 }
