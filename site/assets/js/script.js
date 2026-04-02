@@ -1117,6 +1117,7 @@ function resetToHome() {
   document.getElementById('choices-area').innerHTML = '';
   document.getElementById('name-input-area')?.classList.add('hidden');
   document.getElementById('name-error')?.classList.add('hidden');
+  document.getElementById('name-pending-message')?.classList.add('hidden');
 
   // 共有パラメータを消す
   history.replaceState(null, '', location.pathname);
@@ -1330,7 +1331,7 @@ function endQuiz() {
   ランキング：名前入力UIの表示と送信処理
   - 上位20位に入った場合のみ表示
   - 名前は16文字以内
-  - 送信成功でランキングを即時更新
+  - 送信成功で承認待ちメッセージを表示（管理者承認後にランキング反映）
 --------------------------------------------*/
 function showNameInput(correctCount, totalTimeCs) {
   const area = document.getElementById('name-input-area');
@@ -1393,14 +1394,28 @@ function showNameInput(correctCount, totalTimeCs) {
     try {
       const result = await submitScoreWithToken(token, name, correctCount, totalTimeCs);
 
-      if (result.qualified && Array.isArray(result.top20)) {
-        // ランキング更新成功：メモリ上のleaderboardを更新して再描画
-        leaderboard = result.top20;
-        renderLeaderboard();
+      if (result.qualified) {
+        if (result.pending) {
+          // 承認待ち：入力フォームを隠して承認待ちメッセージを表示
+          input.classList.add('hidden');
+          submitBtn.classList.add('hidden');
+          const msgEl = document.getElementById('name-input-message');
+          if (msgEl) msgEl.classList.add('hidden');
+          const pendingEl = document.getElementById('name-pending-message');
+          if (pendingEl) {
+            pendingEl.textContent = t('leaderboard_pending_message');
+            pendingEl.classList.remove('hidden');
+          }
+        } else if (Array.isArray(result.top20)) {
+          // ランキング即時更新（承認不要の場合のフォールバック）
+          leaderboard = result.top20;
+          renderLeaderboard();
+          area.classList.add('hidden');
+        }
+      } else {
+        // ランク圏外だった場合
+        area.classList.add('hidden');
       }
-
-      // 名前入力UIを非表示
-      area.classList.add('hidden');
     } catch (err) {
       // エラー表示（トークンは消費済みのためリトライ不可）
       if (errorEl) {

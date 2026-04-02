@@ -1,0 +1,11 @@
+{
+  "name": "allstars-admin",
+  "version": "1.1.5",
+  "type": "module",
+  "description": "Admin moderation handler for プリキュアオールスターズいえるかなクイズ",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3",
+    "@aws-sdk/lib-dynamodb": "^3",
+    "@aws-sdk/client-s3": "^3"
+  }
+}

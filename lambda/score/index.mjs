@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   DynamoDBDocumentClient,
@@ -11,6 +11,7 @@ import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 // --- Configuration ---
 
 const SECRET = process.env.SESSION_SECRET;
+const ADMIN_SECRET = process.env.ADMIN_SECRET || "";
 const TABLE_NAME = process.env.TABLE_NAME;
 const SITE_BUCKET = process.env.SITE_BUCKET;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
@@ -31,6 +32,8 @@ const TOKEN_TTL_SECONDS = Math.ceil((TOKEN_EXPIRY_MS * 2) / 1000);
 const MAX_TOTAL_TIME_CS = 65535;
 // 監査ログの DynamoDB TTL（秒）：30日間保持
 const AUDIT_TTL_SECONDS = 30 * 24 * 60 * 60;
+// 承認待ちエントリの DynamoDB TTL（秒）：30日間保持、超過分は自動削除
+const PENDING_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const s3 = new S3Client({});
@@ -291,14 +294,59 @@ async function writeAuditLog(nonce, details) {
 }
 
 /**
+ * 承認待ちエントリを DynamoDB に保存
+ * - pk: "pending:<id>" で個別レコードとして保存
+ * - TTL で 30 日後に自動削除（未承認のまま放置されたエントリの掃除）
+ * @param {string} id - 一意のエントリ ID
+ * @param {object} entry - スコアエントリ
+ */
+async function writePendingEntry(id, entry) {
+  const ttl = Math.floor(Date.now() / 1000) + PENDING_TTL_SECONDS;
+  await ddb.send(
+    new PutCommand({
+      TableName: TABLE_NAME,
+      Item: {
+        pk: `pending:${id}`,
+        ...entry,
+        ttl,
+      },
+    })
+  );
+}
+
+/**
+ * 承認待ちエントリの一意 ID を生成
+ * タイムスタンプ（base36）+ ランダム 4 バイト（hex）で構成
+ */
+function generatePendingId() {
+  return Date.now().toString(36) + randomBytes(4).toString("hex");
+}
+
+/**
+ * 管理操作用の HMAC 署名を生成
+ * Admin Lambda がこの署名を検証して承認/却下を実行する
+ * @param {string} action - 操作種別（"approve" または "reject"）
+ * @param {string} id - 承認待ちエントリの ID
+ * @returns {string} 署名（hex, 32文字）
+ */
+function generateAdminSignature(action, id) {
+  return createHmac("sha256", ADMIN_SECRET)
+    .update(`${action}:${id}`)
+    .digest("hex")
+    .slice(0, 32);
+}
+
+/**
  * ランクイン通知メールの HTML を生成
- * 登録者の情報とクライアント情報、最新の順位表をすべて含む
+ * 登録者の情報とクライアント情報、最新の順位表、承認/却下ボタンをすべて含む
  * @param {object} entry - ランクイン者の情報
  * @param {object} clientInfo - クライアント情報
  * @param {Array} top20 - 最新の順位表
+ * @param {string} approveUrl - 承認用 URL
+ * @param {string} rejectUrl - 却下用 URL
  * @returns {string} HTML 文字列
  */
-function buildNotificationHtml(entry, clientInfo, top20) {
+function buildNotificationHtml(entry, clientInfo, top20, approveUrl, rejectUrl) {
   const timeStr = (entry.totalTimeCs / 100).toFixed(2);
 
   // ISP照会用：リクエスト日時をJSTに変換
@@ -330,60 +378,73 @@ function buildNotificationHtml(entry, clientInfo, top20) {
     )
     .join("");
 
-  // 順位表行の生成
+  // 順位表行の生成（承認待ちエントリは背景色で区別）
   const rankRows = top20
     .map((e, i) => {
       const isCurrent =
         e.name === entry.name && e.timestamp === entry.timestamp;
-      const bg = isCurrent ? "#fff3cd" : i % 2 === 0 ? "#f8f9fa" : "#ffffff";
+      const isPending = !!e._pending;
+      // 承認待ち（今回の送信者）: オレンジ系、承認済み: 通常の縞模様
+      const bg = isPending ? "#fff3cd" : i % 2 === 0 ? "#f8f9fa" : "#ffffff";
       const bold = isCurrent ? "font-weight:bold;" : "";
-      const t = (e.totalTimeCs / 100).toFixed(2);
-      return (
-        `<tr style="background:${bg};${bold}">` +
-        `<td style="padding:4px 8px;text-align:center;">${i + 1}</td>` +
-        `<td style="padding:4px 8px;">${escapeHtml(e.name)}</td>` +
-        `<td style="padding:4px 8px;text-align:right;">${t}s</td>` +
-        `<td style="padding:4px 8px;color:#999;font-size:12px;">${e.timestamp || ""}</td>` +
-        `</tr>`
-      );
+      const pendingLabel = isPending ? ' <span style="color:#e67e22;font-size:11px;">⏳未承認</span>' : "";
+      const ts = e.timestamp
+        ? new Date(e.timestamp).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
+        : "";
+      return `<tr style="background:${bg};${bold}">
+        <td style="padding:6px 8px;text-align:center;">${i + 1}</td>
+        <td style="padding:6px 8px;">${escapeHtml(e.name)}${pendingLabel}</td>
+        <td style="padding:6px 8px;text-align:right;">${(e.totalTimeCs / 100).toFixed(2)}s</td>
+        <td style="padding:6px 8px;font-size:12px;color:#888;">${ts}</td>
+      </tr>`;
     })
     .join("");
 
   return `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#333;max-width:700px;margin:0 auto;padding:16px;">
+<html><head><meta charset="UTF-8"></head>
+<body style="font-family:-apple-system,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333;">
 
 <h2 style="color:#e91e8c;border-bottom:2px solid #e91e8c;padding-bottom:8px;">
-  &#x1f496; プリキュアオールスターズいえるかなクイズ ランクイン通知
+  🎀 ランクイン通知（承認待ち）
 </h2>
 
-<h3 style="margin-top:24px;">登録者情報</h3>
-<table style="border-collapse:collapse;width:100%;margin-bottom:16px;">
-  <tr><td style="padding:4px 12px 4px 0;font-weight:bold;color:#555;">名前</td>
-      <td style="padding:4px 0;">${escapeHtml(entry.name)}</td></tr>
-  <tr><td style="padding:4px 12px 4px 0;font-weight:bold;color:#555;">正解数</td>
-      <td style="padding:4px 0;">${entry.correct} / ${TOTAL_QUESTIONS}</td></tr>
-  <tr><td style="padding:4px 12px 4px 0;font-weight:bold;color:#555;">タイム</td>
-      <td style="padding:4px 0;">${timeStr}秒</td></tr>
-  <tr><td style="padding:4px 12px 4px 0;font-weight:bold;color:#555;">登録日時</td>
-      <td style="padding:4px 0;">${entry.timestamp}</td></tr>
+<p style="background:#fff3cd;padding:12px;border-radius:8px;border:1px solid #ffc107;">
+  ⚠️ このエントリは <strong>承認待ち</strong> です。以下のボタンで承認または削除してください。
+</p>
+
+<div style="text-align:center;margin:24px 0;">
+  <a href="${escapeHtml(approveUrl)}"
+     style="display:inline-block;background:#28a745;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-size:16px;font-weight:bold;margin:0 8px;">
+    ✅ 掲載承認
+  </a>
+  <a href="${escapeHtml(rejectUrl)}"
+     style="display:inline-block;background:#dc3545;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-size:16px;font-weight:bold;margin:0 8px;">
+    ❌ 削除
+  </a>
+</div>
+
+<table style="border-collapse:collapse;width:100%;margin-bottom:20px;">
+  <tr><td style="padding:6px 12px 6px 0;font-weight:bold;white-space:nowrap;color:#555;">名前</td>
+      <td style="padding:6px 0;font-size:18px;">${escapeHtml(entry.name)}</td></tr>
+  <tr><td style="padding:6px 12px 6px 0;font-weight:bold;white-space:nowrap;color:#555;">正解数</td>
+      <td style="padding:6px 0;">${entry.correct} / ${TOTAL_QUESTIONS}</td></tr>
+  <tr><td style="padding:6px 12px 6px 0;font-weight:bold;white-space:nowrap;color:#555;">合計タイム</td>
+      <td style="padding:6px 0;font-size:18px;color:#e91e8c;">${timeStr}秒</td></tr>
+  <tr><td style="padding:6px 12px 6px 0;font-weight:bold;white-space:nowrap;color:#555;">登録日時</td>
+      <td style="padding:6px 0;">${escapeHtml(entry.timestamp)}</td></tr>
 </table>
 
 <h3>クライアント情報</h3>
-<table style="border-collapse:collapse;width:100%;margin-bottom:16px;">
+<table style="border-collapse:collapse;width:100%;font-size:14px;">
   ${infoRows}
 </table>
 
-<h3 style="color:#c00;">ISPログ照会用情報</h3>
-<p style="font-size:13px;color:#666;margin-bottom:8px;">
-  荒らし行為の通報時にISPへ提示する情報です。以下をそのままコピーして使用できます。
-</p>
-<table style="border-collapse:collapse;width:100%;margin-bottom:16px;border:1px solid #f5c6cb;background:#fff5f5;">
-  <tr><td style="padding:6px 12px 6px 0;font-weight:bold;white-space:nowrap;color:#555;">アクセス日時 (JST)</td>
+<h3 style="margin-top:20px;">ISPログ照会用メタデータ</h3>
+<table style="border-collapse:collapse;width:100%;font-size:14px;">
+  <tr><td style="padding:6px 12px 6px 0;font-weight:bold;white-space:nowrap;color:#555;">リクエスト日時(JST)</td>
       <td style="padding:6px 0;font-family:monospace;">${escapeHtml(requestJst)}</td></tr>
-  <tr><td style="padding:6px 12px 6px 0;font-weight:bold;white-space:nowrap;color:#555;">送信元IPアドレス</td>
-      <td style="padding:6px 0;font-family:monospace;">${escapeHtml(String(clientInfo.sourceIp ?? "(不明)"))}</td></tr>
+  <tr><td style="padding:6px 12px 6px 0;font-weight:bold;white-space:nowrap;color:#555;">リクエスト日時(epoch)</td>
+      <td style="padding:6px 0;font-family:monospace;">${escapeHtml(String(clientInfo.requestTimeEpoch ?? "(不明)"))}</td></tr>
   <tr><td style="padding:6px 12px 6px 0;font-weight:bold;white-space:nowrap;color:#555;">接続先</td>
       <td style="padding:6px 0;font-family:monospace;">${escapeHtml(String(clientInfo.httpMethod ?? "POST"))} ${escapeHtml(requestUri)} (port 443)</td></tr>
   <tr><td style="padding:6px 12px 6px 0;font-weight:bold;white-space:nowrap;color:#555;">プロトコル</td>
@@ -410,7 +471,8 @@ function buildNotificationHtml(entry, clientInfo, top20) {
 </table>
 
 <p style="margin-top:24px;color:#999;font-size:12px;">
-  このメールは プリキュアオールスターズいえるかなクイズ のランクイン通知です。
+  このメールは プリキュアオールスターズいえるかなクイズ のランクイン通知です。<br>
+  承認リンクの有効期限は 30 日です。
 </p>
 
 </body>
@@ -432,16 +494,19 @@ function escapeHtml(str) {
  * 管理者にランクイン通知メールを送信（SES v2）
  * ADMIN_EMAIL / SENDER_EMAIL が未設定の場合はスキップ
  * メール送信の失敗はスコア登録処理をブロックしない
+ * メールには承認/却下ボタンが含まれる
  * @param {object} entry - ランクイン者の情報
  * @param {object} clientInfo - クライアント情報
  * @param {Array} top20 - 最新の順位表
+ * @param {string} approveUrl - 承認用 URL
+ * @param {string} rejectUrl - 却下用 URL
  */
-async function sendAdminNotification(entry, clientInfo, top20) {
+async function sendAdminNotification(entry, clientInfo, top20, approveUrl, rejectUrl) {
   if (!ADMIN_EMAIL || !SENDER_EMAIL) return;
 
   const timeStr = (entry.totalTimeCs / 100).toFixed(2);
-  const subject = `[いえるかなクイズ] ランクイン: ${entry.name} (${timeStr}s)`;
-  const htmlBody = buildNotificationHtml(entry, clientInfo, top20);
+  const subject = `[いえるかなクイズ] 承認待ち: ${entry.name} (${timeStr}s)`;
+  const htmlBody = buildNotificationHtml(entry, clientInfo, top20, approveUrl, rejectUrl);
 
   try {
     await ses.send(
@@ -519,9 +584,8 @@ export const handler = async (event) => {
 
   const current = getResult.Item || { pk: "leaderboard", top20: [], version: 0 };
   const top20 = current.top20 || [];
-  const version = current.version || 0;
 
-  // 7. ランクイン判定
+  // 7. ランクイン判定（現在のランキングに対して圏内かチェック）
   const newEntry = {
     name,
     correct,
@@ -542,46 +606,27 @@ export const handler = async (event) => {
     return response(200, { qualified: false, top20: stripClientInfo(top20) });
   }
 
-  // 8. 楽観的ロックで DynamoDB に書き込み
-  try {
-    await ddb.send(
-      new PutCommand({
-        TableName: TABLE_NAME,
-        Item: { pk: "leaderboard", top20: merged, version: version + 1 },
-        ConditionExpression: "attribute_not_exists(version) OR version = :v",
-        ExpressionAttributeValues: { ":v": version },
-      })
-    );
-  } catch (err) {
-    if (err.name === "ConditionalCheckFailedException") {
-      return response(409, { error: "Concurrent update, please retry" });
-    }
-    throw err;
-  }
+  // 8. 承認待ちとして DynamoDB に保存（ランキングには直接追加しない）
+  const pendingId = generatePendingId();
+  await writePendingEntry(pendingId, newEntry);
 
-  // 9. ランキング JSON を S3 に書き出し（CloudFront経由で配信）
-  //    公開用 JSON にはクライアント情報を含めない
-  const publicTop20 = stripClientInfo(merged);
-  const leaderboardJson = JSON.stringify(
-    { updatedAt: new Date().toISOString(), top20: publicTop20 },
-    null,
-    2
-  );
+  // 9. 管理者にランクイン通知メールを送信（承認/却下ボタン付き）
+  //    API Gateway のドメインからリンク URL を構築
+  const apiDomain = event.requestContext?.domainName || "";
+  const stage = event.requestContext?.stage || "prod";
+  const baseUrl = `https://${apiDomain}/${stage}`;
+  const approveSig = generateAdminSignature("approve", pendingId);
+  const rejectSig = generateAdminSignature("reject", pendingId);
+  const approveUrl = `${baseUrl}/api/admin/approve?id=${pendingId}&sig=${approveSig}`;
+  const rejectUrl = `${baseUrl}/api/admin/reject?id=${pendingId}&sig=${rejectSig}`;
 
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: SITE_BUCKET,
-      Key: "leaderboard.json",
-      Body: leaderboardJson,
-      ContentType: "application/json",
-      CacheControl: "public, max-age=30",
-    })
-  );
+  // メール表示用：承認済みランキングに今回の承認待ちエントリを暫定マージ
+  const emailTop20 = [...top20, { ...newEntry, _pending: true }].sort(rankEntry).slice(0, TOP_N);
 
-  // 10. 管理者にランクイン通知メールを送信（非同期、失敗しても登録は成功）
-  await sendAdminNotification(newEntry, clientInfo, merged);
+  await sendAdminNotification(newEntry, clientInfo, emailTop20, approveUrl, rejectUrl);
 
-  return response(200, { qualified: true, top20: publicTop20 });
+  // 10. 承認待ち状態をフロントエンドに返す（ランキングは即時更新しない）
+  return response(200, { qualified: true, pending: true });
 };
 
 /**
