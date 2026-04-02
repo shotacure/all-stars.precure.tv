@@ -38,11 +38,38 @@ Parameters:
     Default: ""
 
 Resources:
+  # --- CloudWatch Logs ---
+  # API Gateway HTTP API のアクセスログ出力先（保持期間 90 日）
+  ApiAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/apigateway/${HttpApi}/access-log"
+      RetentionInDays: 90
+
+  # Lambda 関数のログ出力先（保持期間 90 日）
+  # 明示的に定義することで保持期間を制御（未定義の場合は Lambda が自動作成し永久保持）
+  SessionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/allstars-session
+      RetentionInDays: 90
+
+  ScoreLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/allstars-score
+      RetentionInDays: 90
+
   # --- API Gateway (HTTP API) ---
   HttpApi:
     Type: AWS::Serverless::HttpApi
     Properties:
       StageName: prod
+      # アクセスログを CloudWatch Logs に出力（JSON 形式）
+      AccessLogSettings:
+        DestinationArn: !GetAtt ApiAccessLogGroup.Arn
+        Format: >-
+          {"requestId":"$context.requestId","ip":"$context.identity.sourceIp","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","path":"$context.path","status":"$context.status","responseLength":"$context.responseLength","integrationLatency":"$context.integrationLatency","responseLatency":"$context.responseLatency","userAgent":"$context.identity.userAgent"}
       CorsConfiguration:
         AllowOrigins:
           - !Ref CorsOrigin
@@ -59,6 +86,7 @@ Resources:
   # --- Lambda: Session ---
   SessionFunction:
     Type: AWS::Serverless::Function
+    DependsOn: SessionLogGroup
     Properties:
       FunctionName: allstars-session
       Handler: index.handler
@@ -75,6 +103,7 @@ Resources:
   # ハイスコア送信は稀な操作のため、同時実行数を厳しく制限
   ScoreFunction:
     Type: AWS::Serverless::Function
+    DependsOn: ScoreLogGroup
     Properties:
       FunctionName: allstars-score
       Handler: index.handler
@@ -137,3 +166,7 @@ Outputs:
   LeaderboardTableName:
     Description: DynamoDB table name
     Value: !Ref LeaderboardTable
+  # API Gateway アクセスログの出力先ロググループ名
+  ApiAccessLogGroupName:
+    Description: CloudWatch Logs group for API Gateway access logs
+    Value: !Ref ApiAccessLogGroup
