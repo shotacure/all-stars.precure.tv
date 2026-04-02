@@ -36,6 +36,10 @@ Parameters:
     Type: String
     Description: SES verified sender email address (empty to disable notifications)
     Default: ""
+  AdminSecret:
+    Type: String
+    Description: Secret key for admin operations (approve/reject). Used to sign email action links.
+    NoEcho: true
 
 Resources:
   # --- CloudWatch Logs ---
@@ -58,6 +62,12 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: /aws/lambda/allstars-score
+      RetentionInDays: 90
+
+  AdminLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/allstars-admin
       RetentionInDays: 90
 
   # --- API Gateway (HTTP API) ---
@@ -118,6 +128,8 @@ Resources:
           # ランクイン通知メールの設定（空文字の場合は通知無効）
           ADMIN_EMAIL: !Ref AdminEmail
           SENDER_EMAIL: !Ref SenderEmail
+          # 管理操作用署名鍵（承認/却下リンクの HMAC 生成に使用）
+          ADMIN_SECRET: !Ref AdminSecret
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref LeaderboardTable
@@ -139,8 +151,46 @@ Resources:
             Path: /api/score
             Method: POST
 
+  # --- Lambda: Admin ---
+  # メール内リンクからの承認/却下操作を処理
+  # 管理者がメールのボタンをクリックすると直接このLambdaが呼ばれる
+  AdminFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: AdminLogGroup
+    Properties:
+      FunctionName: allstars-admin
+      Handler: index.handler
+      CodeUri: lambda/admin/
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref LeaderboardTable
+          SITE_BUCKET: !Ref SiteBucketName
+          # 管理操作用署名鍵（メールリンクの HMAC 検証に使用）
+          ADMIN_SECRET: !Ref AdminSecret
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref LeaderboardTable
+        - S3CrudPolicy:
+            BucketName: !Ref SiteBucketName
+      Events:
+        # 承認リンク（GET /api/admin/approve?id=xxx&sig=yyy）
+        Approve:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /api/admin/approve
+            Method: GET
+        # 却下リンク（GET /api/admin/reject?id=xxx&sig=yyy）
+        Reject:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /api/admin/reject
+            Method: GET
+
   # --- DynamoDB ---
   # pk="leaderboard" : ランキング本体（top20 配列 + clientInfo）
+  # pk="pending:*"   : 承認待ちスコア（個別レコード、TTL で 30 日後に自動削除）
   # pk="audits"      : 監査ログ（logs 配列、最大100件、30日で除去）
   # pk="token:*"     : 使用済みトークン（TTL で自動削除）
   LeaderboardTable:
