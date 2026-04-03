@@ -214,7 +214,7 @@ let isSharedView = false;   // 共有URLからの閲覧か
 
 /*--------------------------------------------
   ランキング状態
-  - leaderboard: S3のleaderboard.jsonから読み込んだtop20配列
+  - leaderboard: S3のleaderboard.jsonから読み込んだエントリ配列（上位100件）
   - sessionToken: バックエンドから取得したセッショントークン
 --------------------------------------------*/
 let leaderboard = [];
@@ -433,6 +433,7 @@ function decodeResultsBinary(s) {
   ランキング：leaderboard.json の読み込み
   - ページ読み込み時にS3/CloudFront経由で取得しメモリに保持
   - バックエンドAPIへのアクセスは不要（静的JSON配信）
+  - entries キーを優先し、旧形式 top20 からのフォールバックも対応
 --------------------------------------------*/
 async function loadLeaderboard() {
   try {
@@ -442,7 +443,9 @@ async function loadLeaderboard() {
       return;
     }
     const data = await res.json();
-    leaderboard = Array.isArray(data.top20) ? data.top20 : [];
+    leaderboard = Array.isArray(data.entries) ? data.entries
+               : Array.isArray(data.top20)   ? data.top20
+               : [];
   } catch {
     // leaderboard.json が存在しない初期状態でもエラーにしない
     leaderboard = [];
@@ -453,11 +456,11 @@ async function loadLeaderboard() {
   ランキング：順位判定
   - 満点（10問正解）のみ登録対象
   - 満点同士では合計タイム（センチ秒）の昇順で順位を決定
-  - top20の末尾より速いか、まだ20件未満なら圏内
+  - 上位100位の末尾より速いか、まだ100件未満なら圏内
 --------------------------------------------*/
 function isQualified(correct, totalTimeCs) {
   if (correct !== 10) return false;
-  if (leaderboard.length < 20) return true;
+  if (leaderboard.length < 100) return true;
   const last = leaderboard[leaderboard.length - 1];
   return totalTimeCs < last.totalTimeCs;
 }
@@ -466,6 +469,11 @@ function isQualified(correct, totalTimeCs) {
   ランキング：表示
   - 満点達成者のみのタイムランキングを描画
   - 結果画面・初期画面の両方で表示
+  - 順位ティア別の表示：
+    1～3位: ボールド・大きめフォント・メダル絵文字で差別化
+    4～10位: 通常表示
+    11～20位: 小さめフォント・行高を詰める
+    21位以降: さらに小さいフォントで改行なしのインライン形式
 --------------------------------------------*/
 function renderLeaderboard() {
   const area = document.getElementById('leaderboard-area');
@@ -480,6 +488,12 @@ function renderLeaderboard() {
 
   area.classList.remove('hidden');
 
+  // メダル絵文字と1～3位のフォントサイズ
+  const medals = ['🥇', '🥈', '🥉'];
+  const topFontSizes = ['1.25em', '1.15em', '1.05em'];
+
+  // 1～20位はテーブルで描画
+  const tableEntries = leaderboard.slice(0, 20);
   let html = '<table class="leaderboard-table">';
   html += `<thead><tr>
     <th>${t('leaderboard_rank')}</th>
@@ -487,16 +501,47 @@ function renderLeaderboard() {
     <th>${t('leaderboard_time')}</th>
   </tr></thead><tbody>`;
 
-  leaderboard.forEach((entry, i) => {
+  tableEntries.forEach((entry, i) => {
+    const rank = i + 1;
     const timeSec = (entry.totalTimeCs / 100).toFixed(2);
-    html += `<tr>
-      <td>${i + 1}</td>
-      <td>${escapeHtml(entry.name)}</td>
-      <td>${t('result_time', { sec: timeSec })}</td>
-    </tr>`;
+
+    if (rank <= 3) {
+      // 1～3位: メダル絵文字・ボールド・大きめフォント
+      html += `<tr class="lb-top3" style="font-size:${topFontSizes[i]};">
+        <td><strong>${medals[i]} ${rank}</strong></td>
+        <td><strong>${escapeHtml(entry.name)}</strong></td>
+        <td><strong>${t('result_time', { sec: timeSec })}</strong></td>
+      </tr>`;
+    } else if (rank <= 10) {
+      // 4～10位: 通常表示
+      html += `<tr>
+        <td>${rank}</td>
+        <td>${escapeHtml(entry.name)}</td>
+        <td>${t('result_time', { sec: timeSec })}</td>
+      </tr>`;
+    } else {
+      // 11～20位: 小さめフォント・行高を詰める
+      html += `<tr class="lb-minor">
+        <td>${rank}</td>
+        <td>${escapeHtml(entry.name)}</td>
+        <td>${t('result_time', { sec: timeSec })}</td>
+      </tr>`;
+    }
   });
 
   html += '</tbody></table>';
+
+  // 21位以降: 改行なしのインライン形式
+  if (leaderboard.length > 20) {
+    const inlineEntries = leaderboard.slice(20);
+    const inlineFormatted = inlineEntries.map((entry, i) => {
+      const rank = i + 21;
+      const timeSec = (entry.totalTimeCs / 100).toFixed(2);
+      return `${rank}: ${escapeHtml(entry.name)} (${t('result_time', { sec: timeSec })})`;
+    });
+    html += `<div class="lb-rest">${inlineFormatted.join(' / ')}</div>`;
+  }
+
   list.innerHTML = html;
 }
 
@@ -534,7 +579,7 @@ async function fetchSessionToken() {
   ランキング：スコア送信
   - ランクイン時のみ名前と結果をバックエンドに送信
   - トークンは呼び出し元から明示的に渡す（グローバル参照による二重使用を防止）
-  - 成功時は最新のtop20を受け取りメモリ・表示を更新
+  - 成功時は最新のランキングを受け取りメモリ・表示を更新
 --------------------------------------------*/
 async function submitScoreWithToken(token, name, correct, totalTimeCs) {
   if (!API_BASE_URL) return { qualified: false };
@@ -1329,9 +1374,10 @@ function endQuiz() {
 
 /*--------------------------------------------
   ランキング：名前入力UIの表示と送信処理
-  - 上位20位に入った場合のみ表示
+  - 上位100位に入った場合のみ表示
   - 名前は16文字以内
-  - 送信成功で承認待ちメッセージを表示（管理者承認後にランキング反映）
+  - 同一名義は一つまで（記録更新時のみ上書き）
+  - 送信成功で承認待ちメッセージまたは記録更新メッセージを表示
 --------------------------------------------*/
 function showNameInput(correctCount, totalTimeCs) {
   const area = document.getElementById('name-input-area');
@@ -1395,7 +1441,18 @@ function showNameInput(correctCount, totalTimeCs) {
       const result = await submitScoreWithToken(token, name, correctCount, totalTimeCs);
 
       if (result.qualified) {
-        if (result.pending) {
+        if (result.pending && result.recordUpdated === false) {
+          // 承認待ちに既にベストスコアがある → 更新なし
+          input.classList.add('hidden');
+          submitBtn.classList.add('hidden');
+          const msgEl = document.getElementById('name-input-message');
+          if (msgEl) msgEl.classList.add('hidden');
+          const notUpdatedEl = document.getElementById('name-pending-message');
+          if (notUpdatedEl) {
+            notUpdatedEl.textContent = t('leaderboard_not_updated_message');
+            notUpdatedEl.classList.remove('hidden');
+          }
+        } else if (result.pending) {
           // 承認待ち：入力フォームを隠して承認待ちメッセージを表示
           input.classList.add('hidden');
           submitBtn.classList.add('hidden');
@@ -1406,9 +1463,22 @@ function showNameInput(correctCount, totalTimeCs) {
             pendingEl.textContent = t('leaderboard_pending_message');
             pendingEl.classList.remove('hidden');
           }
-        } else if (result.autoApproved && Array.isArray(result.top20)) {
-          // 自動承認：既存名と一致したため即時反映、完了メッセージを表示
-          leaderboard = result.top20;
+        } else if (result.autoApproved && result.recordUpdated === false) {
+          // 同一名義で既存の記録の方が良い → 更新なし
+          const entries = Array.isArray(result.entries) ? result.entries : [];
+          if (entries.length) { leaderboard = entries; renderLeaderboard(); }
+          input.classList.add('hidden');
+          submitBtn.classList.add('hidden');
+          const msgEl = document.getElementById('name-input-message');
+          if (msgEl) msgEl.classList.add('hidden');
+          const notUpdatedEl = document.getElementById('name-pending-message');
+          if (notUpdatedEl) {
+            notUpdatedEl.textContent = t('leaderboard_not_updated_message');
+            notUpdatedEl.classList.remove('hidden');
+          }
+        } else if (result.autoApproved && Array.isArray(result.entries)) {
+          // 自動承認（記録更新あり）：即時反映、完了メッセージを表示
+          leaderboard = result.entries;
           renderLeaderboard();
           input.classList.add('hidden');
           submitBtn.classList.add('hidden');
@@ -1416,11 +1486,16 @@ function showNameInput(correctCount, totalTimeCs) {
           if (msgEl) msgEl.classList.add('hidden');
           const autoEl = document.getElementById('name-pending-message');
           if (autoEl) {
-            autoEl.textContent = t('leaderboard_auto_approved_message');
+            autoEl.textContent = t('leaderboard_record_updated_message');
             autoEl.classList.remove('hidden');
           }
+        } else if (Array.isArray(result.entries)) {
+          // ランキング即時更新（フォールバック）
+          leaderboard = result.entries;
+          renderLeaderboard();
+          area.classList.add('hidden');
         } else if (Array.isArray(result.top20)) {
-          // ランキング即時更新（承認不要の場合のフォールバック）
+          // 旧形式のレスポンスへのフォールバック
           leaderboard = result.top20;
           renderLeaderboard();
           area.classList.add('hidden');

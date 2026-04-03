@@ -57,5 +57,7 @@
   "leaderboard_name_error": "Please enter a name (16 characters max)",
   "leaderboard_submit_error": "Submission failed. Please try again.",
   "leaderboard_pending_message": "Registered! Your score will appear on the leaderboard shortly.",
-  "leaderboard_auto_approved_message": "Registered! Your score is now on the leaderboard!"
+  "leaderboard_auto_approved_message": "Registered! Your score is now on the leaderboard!",
+  "leaderboard_record_updated_message": "New record! Your best time has been updated!",
+  "leaderboard_not_updated_message": "Your current record is better, so it wasn't updated."
 }
