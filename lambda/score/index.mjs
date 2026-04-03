@@ -342,11 +342,13 @@ function generateAdminSignature(action, id) {
  * @param {object} entry - ランクイン者の情報
  * @param {object} clientInfo - クライアント情報
  * @param {Array} top20 - 最新の順位表
- * @param {string} approveUrl - 承認用 URL
- * @param {string} rejectUrl - 却下用 URL
+ * @param {string} approveUrl - 承認用 URL（自動承認時は空文字）
+ * @param {string} rejectUrl - 却下用 URL（自動承認時は空文字）
+ * @param {object} options - オプション
+ * @param {boolean} options.autoApproved - 自動承認済みの場合 true
  * @returns {string} HTML 文字列
  */
-function buildNotificationHtml(entry, clientInfo, top20, approveUrl, rejectUrl) {
+function buildNotificationHtml(entry, clientInfo, top20, approveUrl, rejectUrl, options = {}) {
   const timeStr = (entry.totalTimeCs / 100).toFixed(2);
 
   // ISP照会用：リクエスト日時をJSTに変換
@@ -400,19 +402,26 @@ function buildNotificationHtml(entry, clientInfo, top20, approveUrl, rejectUrl) 
     })
     .join("");
 
-  return `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"></head>
-<body style="font-family:-apple-system,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333;">
+  // 自動承認モードと承認待ちモードでヘッダー・バナー・ボタンを切り替え
+  const isAutoApproved = !!options.autoApproved;
 
-<h2 style="color:#e91e8c;border-bottom:2px solid #e91e8c;padding-bottom:8px;">
-  🎀 ランクイン通知（承認待ち）
-</h2>
+  const headingText = isAutoApproved
+    ? "🎀 ランクイン通知（自動承認済み）"
+    : "🎀 ランクイン通知（承認待ち）";
 
-<p style="background:#fff3cd;padding:12px;border-radius:8px;border:1px solid #ffc107;">
+  const statusBanner = isAutoApproved
+    ? `<p style="background:#d4edda;padding:12px;border-radius:8px;border:1px solid #28a745;">
+  ✅ ランキングに既存の名前と一致したため <strong>自動承認</strong> されました。ランキングは既に更新済みです。
+</p>`
+    : `<p style="background:#fff3cd;padding:12px;border-radius:8px;border:1px solid #ffc107;">
   ⚠️ このエントリは <strong>承認待ち</strong> です。以下のボタンで承認または削除してください。
-</p>
+</p>`;
 
-<div style="text-align:center;margin:24px 0;">
+  // 自動承認時はアクションボタンなし（情報通知のみ）
+  // 承認待ち時は承認・削除ボタンを表示
+  const actionButtons = isAutoApproved
+    ? ""
+    : `<div style="text-align:center;margin:24px 0;">
   <a href="${escapeHtml(approveUrl)}"
      style="display:inline-block;background:#28a745;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-size:16px;font-weight:bold;margin:0 8px;">
     ✅ 掲載承認
@@ -421,7 +430,19 @@ function buildNotificationHtml(entry, clientInfo, top20, approveUrl, rejectUrl) 
      style="display:inline-block;background:#dc3545;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-size:16px;font-weight:bold;margin:0 8px;">
     ❌ 削除
   </a>
-</div>
+</div>`;
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"></head>
+<body style="font-family:-apple-system,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333;">
+
+<h2 style="color:#e91e8c;border-bottom:2px solid #e91e8c;padding-bottom:8px;">
+  ${headingText}
+</h2>
+
+${statusBanner}
+
+${actionButtons}
 
 <table style="border-collapse:collapse;width:100%;margin-bottom:20px;">
   <tr><td style="padding:6px 12px 6px 0;font-weight:bold;white-space:nowrap;color:#555;">名前</td>
@@ -494,19 +515,24 @@ function escapeHtml(str) {
  * 管理者にランクイン通知メールを送信（SES v2）
  * ADMIN_EMAIL / SENDER_EMAIL が未設定の場合はスキップ
  * メール送信の失敗はスコア登録処理をブロックしない
- * メールには承認/却下ボタンが含まれる
+ * メールには承認/却下ボタン、または自動承認済み通知が含まれる
  * @param {object} entry - ランクイン者の情報
  * @param {object} clientInfo - クライアント情報
  * @param {Array} top20 - 最新の順位表
- * @param {string} approveUrl - 承認用 URL
- * @param {string} rejectUrl - 却下用 URL
+ * @param {string} approveUrl - 承認用 URL（自動承認時は空文字）
+ * @param {string} rejectUrl - 却下用 URL（自動承認時は空文字）
+ * @param {object} options - オプション
+ * @param {boolean} options.autoApproved - 自動承認済みの場合 true
  */
-async function sendAdminNotification(entry, clientInfo, top20, approveUrl, rejectUrl) {
+async function sendAdminNotification(entry, clientInfo, top20, approveUrl, rejectUrl, options = {}) {
   if (!ADMIN_EMAIL || !SENDER_EMAIL) return;
 
   const timeStr = (entry.totalTimeCs / 100).toFixed(2);
-  const subject = `[いえるかなクイズ] 承認待ち: ${entry.name} (${timeStr}s)`;
-  const htmlBody = buildNotificationHtml(entry, clientInfo, top20, approveUrl, rejectUrl);
+  // 自動承認時と承認待ち時でメール件名を分ける
+  const subject = options.autoApproved
+    ? `[いえるかなクイズ] 自動承認: ${entry.name} (${timeStr}s)`
+    : `[いえるかなクイズ] 承認待ち: ${entry.name} (${timeStr}s)`;
+  const htmlBody = buildNotificationHtml(entry, clientInfo, top20, approveUrl, rejectUrl, options);
 
   try {
     await ses.send(
@@ -606,12 +632,76 @@ export const handler = async (event) => {
     return response(200, { qualified: false, top20: stripClientInfo(top20) });
   }
 
-  // 8. 承認待ちとして DynamoDB に保存（ランキングには直接追加しない）
+  // 8. 自動承認判定：送信された名前がランキング上の既存名と完全一致するか
+  //    既にランキングに掲載されている名前は信頼済みとみなし、承認をスキップする
+  const isKnownName = top20.some((e) => e.name === name);
+
+  if (isKnownName) {
+    // --- 自動承認フロー ---
+    // 既知の名前なので承認待ちにせず、ランキングを直接更新する
+
+    const lbVersion = current.version || 0;
+
+    // 8a. ランキングを楽観的ロックで直接書き込み
+    try {
+      await ddb.send(
+        new PutCommand({
+          TableName: TABLE_NAME,
+          Item: { pk: "leaderboard", top20: merged, version: lbVersion + 1 },
+          ConditionExpression: "attribute_not_exists(version) OR version = :v",
+          ExpressionAttributeValues: { ":v": lbVersion },
+        })
+      );
+    } catch (err) {
+      if (err.name === "ConditionalCheckFailedException") {
+        return response(409, { error: "concurrent update, please retry" });
+      }
+      throw err;
+    }
+
+    // 8b. ランキング JSON を S3 に書き出し（CloudFront 経由で配信）
+    const publicTop20 = stripClientInfo(merged);
+    const leaderboardJson = JSON.stringify(
+      { updatedAt: new Date().toISOString(), top20: publicTop20 },
+      null,
+      2
+    );
+
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: SITE_BUCKET,
+        Key: "leaderboard.json",
+        Body: leaderboardJson,
+        ContentType: "application/json",
+        CacheControl: "public, max-age=30",
+      })
+    );
+
+    // 8c. 管理者に自動承認通知メールを送信（アクションボタンなし・情報通知のみ）
+    const emailTop20 = merged.map((e) =>
+      e.timestamp === newEntry.timestamp && e.name === newEntry.name
+        ? { ...e, _autoApproved: true }
+        : e
+    );
+    await sendAdminNotification(newEntry, clientInfo, emailTop20, "", "", { autoApproved: true });
+
+    // 8d. 自動承認済みの更新後ランキングをフロントエンドに返す
+    return response(200, {
+      qualified: true,
+      pending: false,
+      autoApproved: true,
+      top20: publicTop20,
+    });
+  }
+
+  // --- 通常の承認待ちフロー（新規名での登録） ---
+
+  // 9. 承認待ちとして DynamoDB に保存（ランキングには直接追加しない）
   const pendingId = generatePendingId();
   await writePendingEntry(pendingId, newEntry);
 
-  // 9. 管理者にランクイン通知メールを送信（承認/却下ボタン付き）
-  //    API Gateway のドメインからリンク URL を構築
+  // 10. 管理者にランクイン通知メールを送信（承認/却下ボタン付き）
+  //     API Gateway のドメインからリンク URL を構築
   const apiDomain = event.requestContext?.domainName || "";
   const stage = event.requestContext?.stage || "prod";
   const baseUrl = `https://${apiDomain}/${stage}`;
@@ -625,7 +715,7 @@ export const handler = async (event) => {
 
   await sendAdminNotification(newEntry, clientInfo, emailTop20, approveUrl, rejectUrl);
 
-  // 10. 承認待ち状態をフロントエンドに返す（ランキングは即時更新しない）
+  // 11. 承認待ち状態をフロントエンドに返す（ランキングは即時更新しない）
   return response(200, { qualified: true, pending: true });
 };
 

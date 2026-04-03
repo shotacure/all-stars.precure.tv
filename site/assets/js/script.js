@@ -1406,6 +1406,19 @@ function showNameInput(correctCount, totalTimeCs) {
             pendingEl.textContent = t('leaderboard_pending_message');
             pendingEl.classList.remove('hidden');
           }
+        } else if (result.autoApproved && Array.isArray(result.top20)) {
+          // 自動承認：既存名と一致したため即時反映、完了メッセージを表示
+          leaderboard = result.top20;
+          renderLeaderboard();
+          input.classList.add('hidden');
+          submitBtn.classList.add('hidden');
+          const msgEl = document.getElementById('name-input-message');
+          if (msgEl) msgEl.classList.add('hidden');
+          const autoEl = document.getElementById('name-pending-message');
+          if (autoEl) {
+            autoEl.textContent = t('leaderboard_auto_approved_message');
+            autoEl.classList.remove('hidden');
+          }
         } else if (Array.isArray(result.top20)) {
           // ランキング即時更新（承認不要の場合のフォールバック）
           leaderboard = result.top20;
