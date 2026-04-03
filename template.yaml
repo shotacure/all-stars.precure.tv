@@ -189,10 +189,10 @@ Resources:
             Method: GET
 
   # --- DynamoDB ---
-  # pk="leaderboard" : ランキング本体（top20 配列 + clientInfo）
-  # pk="pending:*"   : 承認待ちスコア（個別レコード、TTL で 30 日後に自動削除）
+  # pk="leaderboard" : ランキング本体（entries 配列 + clientInfo、上位100件）
+  # pk="pendings"    : 承認待ちスコア（entries マップ、名前キー、30日で除去）
   # pk="audits"      : 監査ログ（logs 配列、最大100件、30日で除去）
-  # pk="token:*"     : 使用済みトークン（TTL で自動削除）
+  # pk="tokens"      : 使用済みトークン（nonces マップ、有効期限切れは自動除去）
   LeaderboardTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain

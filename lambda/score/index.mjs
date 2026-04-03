@@ -1,4 +1,4 @@
-import { createHmac, randomBytes } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   DynamoDBDocumentClient,
@@ -19,7 +19,7 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "";
 const SENDER_EMAIL = process.env.SENDER_EMAIL || "";
 
 const MAX_NAME_LENGTH = 16;
-const TOP_N = 20;
+const TOP_N = 100;
 const TOTAL_QUESTIONS = 10;
 
 // ネットワーク遅延を考慮したタイム検証の許容誤差（ミリ秒）
@@ -116,24 +116,50 @@ function verifyToken(token, claimedTimeCs) {
 
 /**
  * 使用済みトークンの重複チェックと記録（リプレイ攻撃防止）
- * - DynamoDB に nonce を条件付き書き込みし、既存なら拒否
- * - TTL で自動削除されるため無限に蓄積しない
+ * - 単一レコード（pk: "tokens"）の nonces マップに全 nonce を集約
+ * - 書き込み時に有効期限切れの nonce を自動除去
+ * - 楽観的ロックで同時書き込みの競合を防止（競合時はリトライ）
+ * @param {string} nonce - 検証する nonce
+ * @param {number} retries - リトライ残回数（楽観的ロック競合時用）
  * @returns {boolean} true=未使用（正常）、false=使用済み（リプレイ）
  */
-async function consumeToken(nonce) {
-  const ttl = Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS;
+async function consumeToken(nonce, retries = 3) {
+  const getResult = await ddb.send(
+    new GetCommand({ TableName: TABLE_NAME, Key: { pk: "tokens" } })
+  );
+  const current = getResult.Item || { pk: "tokens", nonces: {}, version: 0 };
+  const nonces = current.nonces || {};
+  const version = current.version || 0;
+
+  // 有効期限切れの nonce を除去
+  const now = Math.floor(Date.now() / 1000);
+  const pruned = {};
+  for (const [key, exp] of Object.entries(nonces)) {
+    if (exp > now) pruned[key] = exp;
+  }
+
+  // 既に使用済みの nonce なら拒否
+  if (pruned[nonce]) return false;
+
+  // 新しい nonce を追加
+  pruned[nonce] = now + TOKEN_TTL_SECONDS;
+
+  // 楽観的ロックで書き込み
   try {
     await ddb.send(
       new PutCommand({
         TableName: TABLE_NAME,
-        Item: { pk: `token:${nonce}`, ttl },
-        ConditionExpression: "attribute_not_exists(pk)",
+        Item: { pk: "tokens", nonces: pruned, version: version + 1 },
+        ConditionExpression: "attribute_not_exists(version) OR version = :v",
+        ExpressionAttributeValues: { ":v": version },
       })
     );
     return true;
   } catch (err) {
     if (err.name === "ConditionalCheckFailedException") {
-      return false;
+      // 同時書き込みの競合 → リトライして再判定
+      if (retries <= 0) return false;
+      return consumeToken(nonce, retries - 1);
     }
     throw err;
   }
@@ -294,44 +320,65 @@ async function writeAuditLog(nonce, details) {
 }
 
 /**
- * 承認待ちエントリを DynamoDB に保存
- * - pk: "pending:<id>" で個別レコードとして保存
- * - TTL で 30 日後に自動削除（未承認のまま放置されたエントリの掃除）
- * @param {string} id - 一意のエントリ ID
+ * 承認待ちエントリを DynamoDB に保存（単一レコード集約型）
+ * - 単一レコード（pk: "pendings"）の entries マップに名前をキーとして格納
+ * - 書き込み時に有効期限切れ（30日超）のエントリを自動除去
+ * - 楽観的ロックで同時書き込みの競合を防止
+ * @param {string} name - サニタイズ済みの名前
  * @param {object} entry - スコアエントリ
  */
-async function writePendingEntry(id, entry) {
-  const ttl = Math.floor(Date.now() / 1000) + PENDING_TTL_SECONDS;
+async function writePendingEntry(name, entry) {
+  const getResult = await ddb.send(
+    new GetCommand({ TableName: TABLE_NAME, Key: { pk: "pendings" } })
+  );
+  const current = getResult.Item || { pk: "pendings", entries: {}, version: 0 };
+  const entries = current.entries || {};
+  const version = current.version || 0;
+
+  // 有効期限切れのエントリを除去（30日超）
+  const cutoff = new Date(Date.now() - PENDING_TTL_SECONDS * 1000).toISOString();
+  const pruned = {};
+  for (const [key, e] of Object.entries(entries)) {
+    if (e.timestamp && e.timestamp > cutoff) pruned[key] = e;
+  }
+
+  // エントリを追加・上書き
+  pruned[name] = entry;
+
+  // 楽観的ロックで書き込み
   await ddb.send(
     new PutCommand({
       TableName: TABLE_NAME,
-      Item: {
-        pk: `pending:${id}`,
-        ...entry,
-        ttl,
-      },
+      Item: { pk: "pendings", entries: pruned, version: version + 1 },
+      ConditionExpression: "attribute_not_exists(version) OR version = :v",
+      ExpressionAttributeValues: { ":v": version },
     })
   );
 }
 
 /**
- * 承認待ちエントリの一意 ID を生成
- * タイムスタンプ（base36）+ ランダム 4 バイト（hex）で構成
+ * 承認待ちエントリを名前で取得
+ * @param {string} name - サニタイズ済みの名前
+ * @returns {object|null} 承認待ちエントリ、存在しなければ null
  */
-function generatePendingId() {
-  return Date.now().toString(36) + randomBytes(4).toString("hex");
+async function getPendingEntry(name) {
+  const result = await ddb.send(
+    new GetCommand({ TableName: TABLE_NAME, Key: { pk: "pendings" } })
+  );
+  return result.Item?.entries?.[name] || null;
 }
 
 /**
  * 管理操作用の HMAC 署名を生成
  * Admin Lambda がこの署名を検証して承認/却下を実行する
+ * 名前ベースの署名により、同一名義のどの通知メールからでも操作可能
  * @param {string} action - 操作種別（"approve" または "reject"）
- * @param {string} id - 承認待ちエントリの ID
+ * @param {string} name - 承認待ちの名前
  * @returns {string} 署名（hex, 32文字）
  */
-function generateAdminSignature(action, id) {
+function generateAdminSignature(action, name) {
   return createHmac("sha256", ADMIN_SECRET)
-    .update(`${action}:${id}`)
+    .update(`${action}:${name}`)
     .digest("hex")
     .slice(0, 32);
 }
@@ -341,14 +388,14 @@ function generateAdminSignature(action, id) {
  * 登録者の情報とクライアント情報、最新の順位表、承認/却下ボタンをすべて含む
  * @param {object} entry - ランクイン者の情報
  * @param {object} clientInfo - クライアント情報
- * @param {Array} top20 - 最新の順位表
+ * @param {Array} rankEntries - 最新の順位表
  * @param {string} approveUrl - 承認用 URL（自動承認時は空文字）
  * @param {string} rejectUrl - 却下用 URL（自動承認時は空文字）
  * @param {object} options - オプション
  * @param {boolean} options.autoApproved - 自動承認済みの場合 true
  * @returns {string} HTML 文字列
  */
-function buildNotificationHtml(entry, clientInfo, top20, approveUrl, rejectUrl, options = {}) {
+function buildNotificationHtml(entry, clientInfo, rankEntries, approveUrl, rejectUrl, options = {}) {
   const timeStr = (entry.totalTimeCs / 100).toFixed(2);
 
   // ISP照会用：リクエスト日時をJSTに変換
@@ -381,7 +428,7 @@ function buildNotificationHtml(entry, clientInfo, top20, approveUrl, rejectUrl, 
     .join("");
 
   // 順位表行の生成（承認待ちエントリは背景色で区別）
-  const rankRows = top20
+  const rankRows = rankEntries
     .map((e, i) => {
       const isCurrent =
         e.name === entry.name && e.timestamp === entry.timestamp;
@@ -476,7 +523,7 @@ ${actionButtons}
       <td style="padding:6px 0;font-family:monospace;font-size:12px;">${escapeHtml(String(clientInfo.apiRequestId ?? "(なし)"))}</td></tr>
 </table>
 
-<h3>最新ランキング TOP ${top20.length}</h3>
+<h3>最新ランキング TOP ${rankEntries.length}</h3>
 <table style="border-collapse:collapse;width:100%;border:1px solid #dee2e6;">
   <thead>
     <tr style="background:#e91e8c;color:#fff;">
@@ -518,13 +565,13 @@ function escapeHtml(str) {
  * メールには承認/却下ボタン、または自動承認済み通知が含まれる
  * @param {object} entry - ランクイン者の情報
  * @param {object} clientInfo - クライアント情報
- * @param {Array} top20 - 最新の順位表
+ * @param {Array} rankEntries - 最新の順位表
  * @param {string} approveUrl - 承認用 URL（自動承認時は空文字）
  * @param {string} rejectUrl - 却下用 URL（自動承認時は空文字）
  * @param {object} options - オプション
  * @param {boolean} options.autoApproved - 自動承認済みの場合 true
  */
-async function sendAdminNotification(entry, clientInfo, top20, approveUrl, rejectUrl, options = {}) {
+async function sendAdminNotification(entry, clientInfo, rankEntries, approveUrl, rejectUrl, options = {}) {
   if (!ADMIN_EMAIL || !SENDER_EMAIL) return;
 
   const timeStr = (entry.totalTimeCs / 100).toFixed(2);
@@ -532,7 +579,7 @@ async function sendAdminNotification(entry, clientInfo, top20, approveUrl, rejec
   const subject = options.autoApproved
     ? `[いえるかなクイズ] 自動承認: ${entry.name} (${timeStr}s)`
     : `[いえるかなクイズ] 承認待ち: ${entry.name} (${timeStr}s)`;
-  const htmlBody = buildNotificationHtml(entry, clientInfo, top20, approveUrl, rejectUrl, options);
+  const htmlBody = buildNotificationHtml(entry, clientInfo, rankEntries, approveUrl, rejectUrl, options);
 
   try {
     await ses.send(
@@ -608,10 +655,28 @@ export const handler = async (event) => {
     new GetCommand({ TableName: TABLE_NAME, Key: { pk: "leaderboard" } })
   );
 
-  const current = getResult.Item || { pk: "leaderboard", top20: [], version: 0 };
-  const top20 = current.top20 || [];
+  const current = getResult.Item || { pk: "leaderboard", entries: [], version: 0 };
+  // entries キーを優先し、旧形式 top20 からのフォールバックも対応
+  const entries = current.entries || current.top20 || [];
 
-  // 7. ランクイン判定（現在のランキングに対して圏内かチェック）
+  // 7. 同一名義の重複チェック
+  //    同じ名前のエントリが既にランキングにある場合、
+  //    新スコアが既存より良い（タイムが短い）場合のみ置換する
+  const existingEntry = entries.find((e) => e.name === name);
+  if (existingEntry && totalTimeCs >= existingEntry.totalTimeCs) {
+    // 既存の記録の方が良い、または同等 → 更新しない、通知メールも不要
+    return response(200, {
+      qualified: true,
+      pending: false,
+      autoApproved: true,
+      recordUpdated: false,
+      entries: stripClientInfo(entries),
+    });
+  }
+
+  // 同一名義のエントリを除外してから新エントリを追加（名前の重複を防ぐ）
+  const entriesWithoutSameName = entries.filter((e) => e.name !== name);
+
   const newEntry = {
     name,
     correct,
@@ -622,19 +687,19 @@ export const handler = async (event) => {
     clientInfo,
   };
 
-  const merged = [...top20, newEntry].sort(rankEntry).slice(0, TOP_N);
+  const merged = [...entriesWithoutSameName, newEntry].sort(rankEntry).slice(0, TOP_N);
 
   const qualified = merged.some(
     (e) => e.timestamp === newEntry.timestamp && e.name === newEntry.name
   );
 
   if (!qualified) {
-    return response(200, { qualified: false, top20: stripClientInfo(top20) });
+    return response(200, { qualified: false, entries: stripClientInfo(entries) });
   }
 
   // 8. 自動承認判定：送信された名前がランキング上の既存名と完全一致するか
   //    既にランキングに掲載されている名前は信頼済みとみなし、承認をスキップする
-  const isKnownName = top20.some((e) => e.name === name);
+  const isKnownName = entries.some((e) => e.name === name);
 
   if (isKnownName) {
     // --- 自動承認フロー ---
@@ -647,7 +712,7 @@ export const handler = async (event) => {
       await ddb.send(
         new PutCommand({
           TableName: TABLE_NAME,
-          Item: { pk: "leaderboard", top20: merged, version: lbVersion + 1 },
+          Item: { pk: "leaderboard", entries: merged, version: lbVersion + 1 },
           ConditionExpression: "attribute_not_exists(version) OR version = :v",
           ExpressionAttributeValues: { ":v": lbVersion },
         })
@@ -660,9 +725,9 @@ export const handler = async (event) => {
     }
 
     // 8b. ランキング JSON を S3 に書き出し（CloudFront 経由で配信）
-    const publicTop20 = stripClientInfo(merged);
+    const publicEntries = stripClientInfo(merged);
     const leaderboardJson = JSON.stringify(
-      { updatedAt: new Date().toISOString(), top20: publicTop20 },
+      { updatedAt: new Date().toISOString(), entries: publicEntries },
       null,
       2
     );
@@ -678,45 +743,59 @@ export const handler = async (event) => {
     );
 
     // 8c. 管理者に自動承認通知メールを送信（アクションボタンなし・情報通知のみ）
-    const emailTop20 = merged.map((e) =>
+    const emailEntries = merged.map((e) =>
       e.timestamp === newEntry.timestamp && e.name === newEntry.name
         ? { ...e, _autoApproved: true }
         : e
     );
-    await sendAdminNotification(newEntry, clientInfo, emailTop20, "", "", { autoApproved: true });
+    await sendAdminNotification(newEntry, clientInfo, emailEntries, "", "", { autoApproved: true });
 
     // 8d. 自動承認済みの更新後ランキングをフロントエンドに返す
     return response(200, {
       qualified: true,
       pending: false,
       autoApproved: true,
-      top20: publicTop20,
+      recordUpdated: true,
+      entries: publicEntries,
     });
   }
 
   // --- 通常の承認待ちフロー（新規名での登録） ---
 
-  // 9. 承認待ちとして DynamoDB に保存（ランキングには直接追加しない）
-  const pendingId = generatePendingId();
-  await writePendingEntry(pendingId, newEntry);
+  // 9. 承認待ちエントリの同一名義チェック
+  //    同じ名前で既に承認待ちがある場合、新スコアが良ければ上書き、そうでなければ更新しない
+  const existingPending = await getPendingEntry(name);
+  if (existingPending && totalTimeCs >= existingPending.totalTimeCs) {
+    // 承認待ちの既存記録の方が良い、または同等 → 更新しない、通知メールも不要
+    return response(200, {
+      qualified: true,
+      pending: true,
+      recordUpdated: false,
+      entries: stripClientInfo(entries),
+    });
+  }
 
-  // 10. 管理者にランクイン通知メールを送信（承認/却下ボタン付き）
-  //     API Gateway のドメインからリンク URL を構築
+  // 10. 承認待ちとして DynamoDB に保存（名前単位で1レコード、ベストスコアのみ保持）
+  await writePendingEntry(name, newEntry);
+
+  // 11. 管理者にランクイン通知メールを送信（承認/却下ボタン付き）
+  //     承認リンクは名前ベース（同一名義のどのメールからでも操作可能）
   const apiDomain = event.requestContext?.domainName || "";
   const stage = event.requestContext?.stage || "prod";
   const baseUrl = `https://${apiDomain}/${stage}`;
-  const approveSig = generateAdminSignature("approve", pendingId);
-  const rejectSig = generateAdminSignature("reject", pendingId);
-  const approveUrl = `${baseUrl}/api/admin/approve?id=${pendingId}&sig=${approveSig}`;
-  const rejectUrl = `${baseUrl}/api/admin/reject?id=${pendingId}&sig=${rejectSig}`;
+  const encodedName = encodeURIComponent(name);
+  const approveSig = generateAdminSignature("approve", name);
+  const rejectSig = generateAdminSignature("reject", name);
+  const approveUrl = `${baseUrl}/api/admin/approve?name=${encodedName}&sig=${approveSig}`;
+  const rejectUrl = `${baseUrl}/api/admin/reject?name=${encodedName}&sig=${rejectSig}`;
 
   // メール表示用：承認済みランキングに今回の承認待ちエントリを暫定マージ
-  const emailTop20 = [...top20, { ...newEntry, _pending: true }].sort(rankEntry).slice(0, TOP_N);
+  const emailEntries = [...entriesWithoutSameName, { ...newEntry, _pending: true }].sort(rankEntry).slice(0, TOP_N);
 
-  await sendAdminNotification(newEntry, clientInfo, emailTop20, approveUrl, rejectUrl);
+  await sendAdminNotification(newEntry, clientInfo, emailEntries, approveUrl, rejectUrl);
 
-  // 11. 承認待ち状態をフロントエンドに返す（ランキングは即時更新しない）
-  return response(200, { qualified: true, pending: true });
+  // 12. 承認待ち状態をフロントエンドに返す（ランキングは即時更新しない）
+  return response(200, { qualified: true, pending: true, recordUpdated: true });
 };
 
 /**

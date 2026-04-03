@@ -219,12 +219,34 @@ button:disabled {
   background-color: #fff8fb;
 }
 
-/* トップ3の行にアクセントカラー */
-.leaderboard-table tbody tr:nth-child(1) td:first-child,
-.leaderboard-table tbody tr:nth-child(2) td:first-child,
-.leaderboard-table tbody tr:nth-child(3) td:first-child {
+/* トップ3の行を目立たせる（メダル絵文字・ボールド・大きめフォント） */
+.leaderboard-table tbody tr.lb-top3 {
+  background-color: #fff0f5;
   font-weight: bold;
+}
+
+.leaderboard-table tbody tr.lb-top3 td {
+  padding: 10px 6px;
   color: #ff3366;
+}
+
+/* 11～20位の行は小さめフォント・行高を詰める */
+.leaderboard-table tbody tr.lb-minor {
+  font-size: 0.82em;
+}
+
+.leaderboard-table tbody tr.lb-minor td {
+  padding: 4px 6px;
+}
+
+/* 21位以降のインライン表示 */
+.lb-rest {
+  font-size: 0.75em;
+  color: #888;
+  line-height: 1.8;
+  margin-top: 8px;
+  text-align: center;
+  word-break: break-all;
 }
 
 /* フッターのスタイル */
