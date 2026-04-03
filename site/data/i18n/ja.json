@@ -56,5 +56,6 @@
   "leaderboard_submit": "とうろく",
   "leaderboard_name_error": "なまえをいれてね（16もじいない）",
   "leaderboard_submit_error": "とうろくできませんでした。もういちどためしてね。",
-  "leaderboard_pending_message": "とうろくかんりょう！はんえいまでしばらくおまちください。"
+  "leaderboard_pending_message": "とうろくかんりょう！はんえいまでしばらくおまちください。",
+  "leaderboard_auto_approved_message": "とうろくかんりょう！ランキングにはんえいされました！"
 }
