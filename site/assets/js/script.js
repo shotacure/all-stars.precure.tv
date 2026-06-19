@@ -7,7 +7,7 @@
  *               結果を出さず即初期画面に戻す
  *  - 共有URL：バイナリ短縮
  *      正解のときは「選択情報を持たない」可変長レコードでURL短縮
- *  - 共有URL復元：?r= パラメータから結果画面を再現
+ *  - 共有URL復元：#r=（旧 ?r=）パラメータから結果画面を再現
  *  - 初期表示：「いまのプリキュア…Nにん」を表示
  *  - ランキング：上位20位をバックエンドと連携して管理
  *      読み取りはS3上のleaderboard.jsonをCloudFront経由で取得
@@ -98,24 +98,24 @@ function initLangSwitch() {
 
   const setUrlLang = (lang) => {
     const url = new URL(location.href);
-    const params = url.searchParams;
-    const r = params.get('r');
+    const r = getShareParam();
 
-    // 共有URLがある場合：r内の1ビット言語フラグを更新し、?en は使わない
+    // 共有URLがある場合：r内の1ビット言語フラグを更新し、#r= に書き戻す（?en は使わない）
     if (r) {
       try {
         const decoded = decodeResultsBinary(r);
         const newR = encodeResultsBinaryFromDecoded(decoded, lang === 'en' ? 1 : 0);
-        url.search = '?r=' + newR;
+        url.search = '';
+        url.hash = 'r=' + newR;
       } catch (_) {
         // decode失敗時はフォールバック：?en を使う（容量は増えるが復旧優先）
-        if (lang === 'en') url.search = '?en';
-        else url.search = '';
+        url.hash = '';
+        url.search = (lang === 'en') ? '?en' : '';
       }
     } else {
       // 通常画面：?en の有無だけで表現
-      if (lang === 'en') url.search = '?en';
-      else url.search = '';
+      url.hash = '';
+      url.search = (lang === 'en') ? '?en' : '';
     }
 
     history.replaceState(null, '', url.toString());
@@ -138,6 +138,38 @@ function initLangSwitch() {
 function hasEnglishFlag() {
   const params = new URLSearchParams(location.search);
   return params.has('en');
+}
+
+/*--------------------------------------------
+  共有パラメータ(r)の取得
+  - 新形式：#r=（フラグメント）。サーバーへ送られずGoogleにインデックスされないため、
+    共有のたびに重複URLが量産されるのを防ぐ
+  - 旧形式：?r=（クエリ）も後方互換で読み取る（過去に拡散済みの大量リンクを維持）
+--------------------------------------------*/
+function getShareParam() {
+  const rawHash = location.hash.startsWith('#') ? location.hash.slice(1) : location.hash;
+  const fromHash = new URLSearchParams(rawHash).get('r');
+  if (fromHash) return fromHash;
+  return new URLSearchParams(location.search).get('r');
+}
+
+/*--------------------------------------------
+  フッタ著作権表記の「年」を組み立てる
+  - 公開年と現在年が同じ          → "2025"（単年）
+  - 現在年が公開年より後          → "2025-2026"（期間）
+  - 現在年が公開年より前（時計ずれ） → 公開年のみ（安全側に倒す）
+--------------------------------------------*/
+const COPYRIGHT_PUBLISHED_YEAR = 2025;
+
+function buildCopyrightYears(publishedYear, currentYear) {
+  if (currentYear <= publishedYear) return String(publishedYear);
+  return `${publishedYear}-${currentYear}`;
+}
+
+function updateCopyrightYears() {
+  const el = document.getElementById('copyright-years');
+  if (!el) return;
+  el.textContent = buildCopyrightYears(COPYRIGHT_PUBLISHED_YEAR, new Date().getFullYear());
 }
 
 
@@ -608,10 +640,10 @@ async function submitScoreWithToken(token, name, correct, totalTimeCs) {
 --------------------------------------------*/
 document.addEventListener('DOMContentLoaded', () => {
   // i18n: language init
-  // - 共有URL (?r=) では、パラメータ内の1ビット言語フラグを優先
+  // - 共有URL (#r= / 旧 ?r=) では、パラメータ内の1ビット言語フラグを優先
   // - それ以外は、?en がある場合のみ英語、無い場合は日本語
   const params = new URLSearchParams(location.search);
-  const rParamForLang = params.get('r');
+  const rParamForLang = getShareParam();
   let initialLang = params.has('en') ? 'en' : 'ja';
   if (rParamForLang) {
     try {
@@ -623,6 +655,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   loadLanguage(initialLang);
   initLangSwitch();
+  updateCopyrightYears();
 
   // ランキングを非同期で読み込み（表示はloadLanguage内のrenderLeaderboardで行う）
   loadLeaderboard().then(() => renderLeaderboard());
@@ -655,8 +688,8 @@ document.addEventListener('DOMContentLoaded', () => {
     })
     .catch(() => { /* 表示はキャッシュでOK */ });
 
-  // 2) 共有URL ?r= があれば結果復元モード
-  const rParam = new URLSearchParams(location.search).get('r');
+  // 2) 共有URL (#r= / 旧 ?r=) があれば結果復元モード
+  const rParam = getShareParam();
   if (!rParam) return;
 
   isSharedView = true;
@@ -1327,10 +1360,11 @@ function endQuiz() {
   // 共有URL生成（合計は16bit上限で丸め、エンコード）
   const totalCs16 = Math.min(65535, Math.max(0, Math.round(totalSec * 100)));
   const shareParam = encodeResultsBinary(results, totalCs16 / 100);
-  const shareUrl   = `${location.origin}${location.pathname}?r=${shareParam}`;
+  const shareUrl   = `${location.origin}${location.pathname}#r=${shareParam}`;
 
   // 結果画面になった時点で、URLを共有形式に更新（コピー共有しやすくする）
-  try { history.replaceState(null, '', `${location.pathname}?r=${shareParam}`); } catch (_) {}
+  // #（フラグメント）はサーバーへ送られずGoogleにインデックスされないため、重複URLが量産されない
+  try { history.replaceState(null, '', `${location.pathname}#r=${shareParam}`); } catch (_) {}
 
   // ツイートボタン設定
   if (tweetBtn) {

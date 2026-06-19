@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- 代表URL：?r=（共有URL）や ?i（iモード）等のパラメータ違いを正規URLへ集約し、重複インデックスを防ぐ -->
+  <link rel="canonical" href="https://all-stars.precure.tv/" />
   <title data-i18n="site_title">プリキュアオールスターズいえるかなクイズ</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -63,12 +65,16 @@
       <h2 data-i18n="contact_h2">お問い合わせ</h2>
       <p>
         <a href="https://x.com/shota_" target="_blank">X: @shota_</a>
-        <a href="mailto:showtime@precure.tv">shota@precure.tv</a>
+        <a href="mailto:shota@precure.tv">shota@precure.tv</a>
       </p>
     </section>
     <div id="copyright">
-      <p>© Shota (SHOWTIME). All rights reserved for original works.</p>
-      <p data-i18n="disclaimer">サークル「SHOWTIME」代表・祥太が個人で運営しています。ABCアニメーション様、東映アニメーション様、その他各社様とは一切関係ございません。</p>
+      <div class="footer-legal">
+        <p data-i18n="disclaimer_operator">当サイトは、サークル「SHOWTIME」代表・祥太が個人で運営する非公式ファンサイトです。各公式権利者様とは一切関係ございません。</p>
+        <p data-i18n="disclaimer_rights">『プリキュア』シリーズの著作権・商標権等の知的財産権は、ABCアニメーション様、東映アニメーション様、および関係各社様に帰属します。</p>
+        <p data-i18n="disclaimer_original">当サイト独自のテキスト・デザイン、およびデータの選択・構成に関する著作権は、当方に帰属します。</p>
+      </div>
+      <p class="footer-copyright">© <span id="copyright-years">2025-2026</span> Shota (SHOWTIME).</p>
     </div>
   </footer>
 
