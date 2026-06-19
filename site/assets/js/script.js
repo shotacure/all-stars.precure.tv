@@ -153,6 +153,25 @@ function getShareParam() {
   return new URLSearchParams(location.search).get('r');
 }
 
+/*--------------------------------------------
+  フッタ著作権表記の「年」を組み立てる
+  - 公開年と現在年が同じ          → "2025"（単年）
+  - 現在年が公開年より後          → "2025-2026"（期間）
+  - 現在年が公開年より前（時計ずれ） → 公開年のみ（安全側に倒す）
+--------------------------------------------*/
+const COPYRIGHT_PUBLISHED_YEAR = 2025;
+
+function buildCopyrightYears(publishedYear, currentYear) {
+  if (currentYear <= publishedYear) return String(publishedYear);
+  return `${publishedYear}-${currentYear}`;
+}
+
+function updateCopyrightYears() {
+  const el = document.getElementById('copyright-years');
+  if (!el) return;
+  el.textContent = buildCopyrightYears(COPYRIGHT_PUBLISHED_YEAR, new Date().getFullYear());
+}
+
 
 function formatSeconds(sec) {
   return t('timer_value', { sec: sec.toFixed(2) });
@@ -636,6 +655,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   loadLanguage(initialLang);
   initLangSwitch();
+  updateCopyrightYears();
 
   // ランキングを非同期で読み込み（表示はloadLanguage内のrenderLeaderboardで行う）
   loadLeaderboard().then(() => renderLeaderboard());
