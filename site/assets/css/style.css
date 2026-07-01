@@ -85,43 +85,41 @@ button:disabled {
   outline: none;
 }
 
-/* タイマー行：左=記録ゴースト / 中央=タイマー / 右=暫定順位 */
+/* タイマー行：タイマーは常に中央。
+   記録ゴースト（左）と暫定順位（右）は絶対配置のオーバーレイで、
+   出現してもレイアウトを一切押し広げない */
 #timer-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
   margin: 10px 0;
-  min-height: 2.2em;
-}
-
-#timer-row.hidden {
-  display: none;
+  min-height: 2em;
 }
 
 #timer {
   font-size: 1.2em;
   color: #ff3399;
-  margin: 0 0.4em;
   white-space: nowrap;
 }
 
-#timer-ghosts,
-#timer-rank {
-  flex: 1 1 0;
-  min-width: 0;
-}
-
+/* 記録ゴーストのレイヤ（タイマー左・手前・クリック透過） */
 #timer-ghosts {
-  text-align: right;
+  position: absolute;
+  right: calc(50% + 3.6em);
+  bottom: 50%;
+  height: 0;
+  pointer-events: none;
+  z-index: 5;
 }
 
 .timer-ghost {
+  position: absolute;
+  right: 0;
+  bottom: -0.6em;
   font-size: 0.8em;
   color: #ff80bf;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%;
+  max-width: 38vw;
   animation: ghost-float 2.6s ease-out forwards;
 }
 
@@ -135,15 +133,20 @@ button:disabled {
   0%   { opacity: 0; transform: translateY(10px); }
   15%  { opacity: 1; transform: translateY(4px); }
   70%  { opacity: 0.9; }
-  100% { opacity: 0; transform: translateY(-14px); }
+  100% { opacity: 0; transform: translateY(-18px); }
 }
 
+/* 暫定順位（タイマー右のオーバーレイ） */
 #timer-rank {
-  text-align: left;
+  position: absolute;
+  left: calc(50% + 3.6em);
+  top: 50%;
+  transform: translateY(-50%);
   font-size: 0.95em;
   font-weight: bold;
   color: #ff3399;
   white-space: nowrap;
+  pointer-events: none;
 }
 
 /* 不正解あり・圏外時はグレーアウト */

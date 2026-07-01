@@ -593,7 +593,8 @@ function renderLeaderboard() {
 /*--------------------------------------------
   プレイ中演出：歴代記録ゴースト & 暫定順位
   - ゴースト：経過時間がランキング記録のタイムに達するたび、
-    タイマー左に「◯位 なまえ」をフワッと流す
+    タイマー左のオーバーレイに「◯位 なまえ」をフワッと流す
+    （レイアウトフロー外なのでUIを押し広げない）
   - 暫定順位：タイマー右に「このペースでフィニッシュしたら何位か」を表示。
     予測タイム = 経過時間 ÷ 回答済み問数 × 全10問。圏外はグレー表示。
     プレイ中限定の演出（結果画面では消す）。正誤は結果発表までの
@@ -621,6 +622,8 @@ function spawnGhost(item) {
   const el = document.createElement('div');
   el.className = 'timer-ghost' + (item.isLb ? '' : ' timer-ghost-pb');
   el.textContent = item.label;
+  // 直前のゴーストが消える前に重ならないよう、表示中の数だけ上へずらす
+  el.style.bottom = `${area.children.length * 1.2}em`;
   el.addEventListener('animationend', () => el.remove());
   area.appendChild(el);
   // 記録が密集した場合のDOM膨張防止（古いものから間引く）
