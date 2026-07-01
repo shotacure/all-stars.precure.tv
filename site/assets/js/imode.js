@@ -134,6 +134,7 @@
 
     /* ヘッダ画像・タイマー・言語切替を非表示 */
     'body.imode .header-image{display:none!important;}',
+    'body.imode #timer-row{display:none!important;}',
     'body.imode #timer{display:none!important;}',
     'body.imode #lang-switch{display:none!important;}',
 
@@ -143,9 +144,10 @@
     /* 全要素をDotGothic16に統一し、ボールドを無効化 */
     'body.imode,body.imode *{font-family:"DotGothic16",monospace!important;font-weight:normal!important;}',
 
-    /* ランキング・名前入力UIを非表示（iモード時代には無い機能） */
+    /* ランキング・名前入力UI・自己ベストを非表示（iモード時代には無い機能） */
     'body.imode #leaderboard-area{display:none!important;}',
     'body.imode #name-input-area{display:none!important;}',
+    'body.imode #personal-best{display:none!important;}',
 
     /* 全般テキスト */
     'body.imode h1,body.imode h2{font-family:"DotGothic16",monospace;font-size:1em;color:#222;text-shadow:none;margin:0.3em 0;}',

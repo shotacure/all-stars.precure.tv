@@ -9,6 +9,8 @@
  *      正解のときは「選択情報を持たない」可変長レコードでURL短縮
  *  - 共有URL復元：#r=（旧 ?r=）パラメータから結果画面を再現
  *  - 初期表示：「いまのプリキュア…Nにん」を表示
+ *  - プレイ中演出：タイマー左に歴代記録ゴースト、右に暫定順位を表示
+ *  - 自己ベスト：localStorage に保持しホーム画面に表示、更新時は結果画面で祝う
  *  - ランキング：上位20位をバックエンドと連携して管理
  *      読み取りはS3上のleaderboard.jsonをCloudFront経由で取得
  *      書き込みはランクイン時のみAPI経由でバックエンドにアクセス
@@ -197,6 +199,7 @@ async function loadLanguage(lang) {
     setLangButtonsActive(lang);
     applyI18nToDom();
     updatePrecureCountLabel();
+    updatePersonalBestLabel();
     rebuildQuestionsForLang();
     rebuildResultsForLang();
     refreshLanguageSensitiveUI();
@@ -243,6 +246,18 @@ let elapsedTime = 0;        // 合計経過時間(ms)
 let results = [];           // 回答結果（共有用メタ含む）
 let lastAnswerTime;         // 直前回答時刻(ms)
 let isSharedView = false;   // 共有URLからの閲覧か
+
+/*--------------------------------------------
+  プレイ中演出の状態（記録ゴースト・暫定順位）
+--------------------------------------------*/
+let hasWrongAnswer = false;    // 現在のプレイ中に不正解があるか（暫定順位グレーアウト用）
+let ghostTimeline = [];        // タイマー左に流す記録 [{timeCs, label, isLb}]（時間昇順）
+let ghostIdx = 0;              // ghostTimeline の消化位置
+let lbPassedCount = 0;         // 経過時間が上回った満点記録数（暫定順位の算出用）
+let lastRankKey = '';          // 暫定順位表示のDOM更新抑制キャッシュ
+const RANKING_CAPACITY = 100;  // ランキング収容数（超過は圏外表示）
+// アクセシビリティ：動きを減らす設定ではゴーストを流さない
+const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 
 /*--------------------------------------------
   ランキング状態
@@ -578,6 +593,109 @@ function renderLeaderboard() {
 }
 
 /*--------------------------------------------
+  プレイ中演出：歴代記録ゴースト & 暫定順位
+  - ゴースト：経過時間がランキング記録のタイムに達するたび、
+    タイマー左に「◯位 なまえ」をフワッと流す
+  - 暫定順位：タイマー右に「いまフィニッシュしたら何位か」を表示。
+    不正解がある（＝満点ランキングに載れない）場合はグレーアウト
+  - iモードでは updateTimer ごと差し替えられるため自動的に無効
+--------------------------------------------*/
+function buildGhostTimeline() {
+  const medals = ['🥇', '🥈', '🥉'];
+  ghostTimeline = leaderboard.map((e, i) => ({
+    timeCs: e.totalTimeCs,
+    label: (medals[i] || '') + t('ghost_entry', { rank: i + 1, name: e.name }),
+    isLb: true,
+  }));
+  // 満点の自己ベストもゴーストとして流す（暫定順位には数えない）
+  const pb = loadPersonalBest();
+  if (pb && pb.correct === 10) {
+    ghostTimeline.push({ timeCs: pb.totalCs, label: t('ghost_personal_best'), isLb: false });
+  }
+  ghostTimeline.sort((a, b) => a.timeCs - b.timeCs);
+}
+
+function spawnGhost(item) {
+  const area = document.getElementById('timer-ghosts');
+  if (!area) return;
+  const el = document.createElement('div');
+  el.className = 'timer-ghost' + (item.isLb ? '' : ' timer-ghost-pb');
+  el.textContent = item.label;
+  el.addEventListener('animationend', () => el.remove());
+  area.appendChild(el);
+  // 記録が密集した場合のDOM膨張防止（古いものから間引く）
+  while (area.children.length > 4) area.firstChild.remove();
+}
+
+function advanceGhosts(elapsedCs) {
+  while (ghostIdx < ghostTimeline.length && ghostTimeline[ghostIdx].timeCs <= elapsedCs) {
+    const item = ghostTimeline[ghostIdx];
+    if (item.isLb) lbPassedCount++;
+    if (!REDUCED_MOTION) spawnGhost(item);
+    ghostIdx++;
+  }
+}
+
+function renderProvisionalRank() {
+  const el = document.getElementById('timer-rank');
+  if (!el) return;
+  const rank = lbPassedCount + 1;
+  const out = rank > RANKING_CAPACITY;
+  const text = out ? t('rank_out') : t('provisional_rank', { n: rank });
+  const gray = hasWrongAnswer || out;
+  const key = text + (gray ? '|g' : '');
+  if (key === lastRankKey) return; // 変化があった時だけDOMを更新（10ms周期対策）
+  lastRankKey = key;
+  el.textContent = text;
+  el.classList.toggle('rank-gray', gray);
+}
+
+function resetPlayEffects() {
+  hasWrongAnswer = false;
+  ghostTimeline = [];
+  ghostIdx = 0;
+  lbPassedCount = 0;
+  lastRankKey = '';
+  const ghosts = document.getElementById('timer-ghosts');
+  if (ghosts) ghosts.innerHTML = '';
+  const rankEl = document.getElementById('timer-rank');
+  if (rankEl) { rankEl.textContent = ''; rankEl.classList.remove('rank-gray'); }
+}
+
+/*--------------------------------------------
+  自己ベスト（localStorage）
+  - 正解数が多い方を優先、同数ならタイムが速い方を保持
+  - ホーム画面にのみ表示（プレイ中・結果・共有ビューでは非表示）
+  - 満点の自己ベストはプレイ中ゴーストとしても流す
+--------------------------------------------*/
+function loadPersonalBest() {
+  try {
+    const pb = JSON.parse(localStorage.getItem('personal_best'));
+    if (pb && Number.isInteger(pb.correct) && Number.isInteger(pb.totalCs)) return pb;
+  } catch (_) { /* 破損・私的ブラウジング等は無視 */ }
+  return null;
+}
+
+function updatePersonalBest(correct, totalCs) {
+  const pb = loadPersonalBest();
+  const better = !pb || correct > pb.correct || (correct === pb.correct && totalCs < pb.totalCs);
+  if (!better) return false;
+  try { localStorage.setItem('personal_best', JSON.stringify({ correct, totalCs })); } catch (_) {}
+  return true;
+}
+
+function updatePersonalBestLabel() {
+  const el = document.getElementById('personal-best');
+  if (!el) return;
+  const pb = loadPersonalBest();
+  // ホーム画面（スタートボタンが見えている状態）でのみ表示
+  const isHome = !document.getElementById('start-btn')?.classList.contains('hidden');
+  if (!pb || !isHome || isSharedView) { el.classList.add('hidden'); return; }
+  el.textContent = t('personal_best_label', { correct: pb.correct, sec: (pb.totalCs / 100).toFixed(2) });
+  el.classList.remove('hidden');
+}
+
+/*--------------------------------------------
   HTMLエスケープ（ランキング名前表示用）
 --------------------------------------------*/
 function escapeHtml(str) {
@@ -695,7 +813,7 @@ document.addEventListener('DOMContentLoaded', () => {
   isSharedView = true;
   document.getElementById('start-btn')?.classList.add('hidden');
   document.getElementById('precure-count')?.classList.add('hidden');
-  document.getElementById('timer')?.classList.add('hidden');
+  document.getElementById('timer-row')?.classList.add('hidden');
 
   fetch('data/precure.json')
     .then(res => res.json())
@@ -775,9 +893,10 @@ document.addEventListener('DOMContentLoaded', () => {
 document.getElementById('start-btn').onclick = () => {
   document.getElementById('start-btn').classList.add('hidden');
   document.getElementById('precure-count')?.classList.add('hidden');
+  document.getElementById('personal-best')?.classList.add('hidden');
   document.getElementById('leaderboard-area')?.classList.add('hidden');
   hideLangSwitch();
-  document.getElementById('timer').classList.remove('hidden');
+  document.getElementById('timer-row').classList.remove('hidden');
 
   // データ読込とセッショントークン取得を並行実行
   Promise.all([
@@ -1151,6 +1270,10 @@ function startQuiz() {
   results = [];
   elapsedTime = 0;
 
+  // プレイ中演出の初期化（記録ゴーストのタイムライン構築）
+  resetPlayEffects();
+  buildGhostTimeline();
+
   startTime = Date.now();
   lastAnswerTime = startTime;
 
@@ -1163,6 +1286,10 @@ function updateTimer() {
   elapsedTime = Date.now() - startTime;
   const s = elapsedTime / 1000;
   document.getElementById('timer').textContent = formatSeconds(s);
+
+  // プレイ中演出：経過に応じて記録ゴーストを流し、暫定順位を更新
+  advanceGhosts(elapsedTime / 10);
+  renderProvisionalRank();
 
   if (s > TOTAL_LIMIT) {
     clearInterval(timerInterval);
@@ -1185,7 +1312,8 @@ function resetToHome() {
 
   document.getElementById('result-area').innerHTML = '';
   document.getElementById('timer').textContent = formatSeconds(0);
-  document.getElementById('timer').classList.add('hidden');
+  document.getElementById('timer-row').classList.add('hidden');
+  resetPlayEffects();
   document.getElementById('start-btn').classList.remove('hidden');
   document.getElementById('precure-count')?.classList.remove('hidden');
   document.getElementById('lang-switch')?.classList.remove('hidden');
@@ -1200,8 +1328,9 @@ function resetToHome() {
   // 共有パラメータを消す
   history.replaceState(null, '', location.pathname);
 
-  // ランキングを再表示
+  // ランキング・自己ベストを再表示
   renderLeaderboard();
+  updatePersonalBestLabel();
 }
 
 /*--------------------------------------------
@@ -1245,6 +1374,7 @@ function answer(selectedChoice) {
 
   const q = questions[currentQuestion];
   const isCorrect = (selectedChoice === q.correct);
+  if (!isCorrect) hasWrongAnswer = true; // 暫定順位のグレーアウト用
 
   // 共有用に選択の出典（どの要素のどのカラムか）を推測
   const fieldCode = typeToFieldCode(q.type);
@@ -1396,6 +1526,12 @@ function endQuiz() {
 
   // ランキング判定（自分のプレイ時のみ、共有ビューでは行わない）
   const totalTimeCs = Math.round(totalSec * 100);
+
+  // 自己ベスト判定・保存（共有ビューでは記録しない）
+  if (!isSharedView && updatePersonalBest(correctCount, totalTimeCs)) {
+    resArea.innerHTML += `<p class="pb-updated">${t('personal_best_updated')}</p>`;
+  }
+
   if (!isSharedView && API_BASE_URL && isQualified(correctCount, totalTimeCs)) {
     showNameInput(correctCount, totalTimeCs);
   }
