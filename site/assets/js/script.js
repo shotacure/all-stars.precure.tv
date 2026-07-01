@@ -10,6 +10,7 @@
  *  - 共有URL復元：#r=（旧 ?r=）パラメータから結果画面を再現
  *  - 初期表示：「いまのプリキュア…Nにん」を表示
  *  - プレイ中演出：タイマー左に歴代記録ゴースト、右に暫定順位を表示
+ *  - 自己ベスト：localStorage に保持しホーム画面に表示、更新時は結果画面で祝う
  *  - ランキング：上位20位をバックエンドと連携して管理
  *      読み取りはS3上のleaderboard.jsonをCloudFront経由で取得
  *      書き込みはランクイン時のみAPI経由でバックエンドにアクセス
@@ -198,6 +199,7 @@ async function loadLanguage(lang) {
     setLangButtonsActive(lang);
     applyI18nToDom();
     updatePrecureCountLabel();
+    updatePersonalBestLabel();
     rebuildQuestionsForLang();
     rebuildResultsForLang();
     refreshLanguageSensitiveUI();
@@ -605,6 +607,11 @@ function buildGhostTimeline() {
     label: (medals[i] || '') + t('ghost_entry', { rank: i + 1, name: e.name }),
     isLb: true,
   }));
+  // 満点の自己ベストもゴーストとして流す（暫定順位には数えない）
+  const pb = loadPersonalBest();
+  if (pb && pb.correct === 10) {
+    ghostTimeline.push({ timeCs: pb.totalCs, label: t('ghost_personal_best'), isLb: false });
+  }
   ghostTimeline.sort((a, b) => a.timeCs - b.timeCs);
 }
 
@@ -653,6 +660,39 @@ function resetPlayEffects() {
   if (ghosts) ghosts.innerHTML = '';
   const rankEl = document.getElementById('timer-rank');
   if (rankEl) { rankEl.textContent = ''; rankEl.classList.remove('rank-gray'); }
+}
+
+/*--------------------------------------------
+  自己ベスト（localStorage）
+  - 正解数が多い方を優先、同数ならタイムが速い方を保持
+  - ホーム画面にのみ表示（プレイ中・結果・共有ビューでは非表示）
+  - 満点の自己ベストはプレイ中ゴーストとしても流す
+--------------------------------------------*/
+function loadPersonalBest() {
+  try {
+    const pb = JSON.parse(localStorage.getItem('personal_best'));
+    if (pb && Number.isInteger(pb.correct) && Number.isInteger(pb.totalCs)) return pb;
+  } catch (_) { /* 破損・私的ブラウジング等は無視 */ }
+  return null;
+}
+
+function updatePersonalBest(correct, totalCs) {
+  const pb = loadPersonalBest();
+  const better = !pb || correct > pb.correct || (correct === pb.correct && totalCs < pb.totalCs);
+  if (!better) return false;
+  try { localStorage.setItem('personal_best', JSON.stringify({ correct, totalCs })); } catch (_) {}
+  return true;
+}
+
+function updatePersonalBestLabel() {
+  const el = document.getElementById('personal-best');
+  if (!el) return;
+  const pb = loadPersonalBest();
+  // ホーム画面（スタートボタンが見えている状態）でのみ表示
+  const isHome = !document.getElementById('start-btn')?.classList.contains('hidden');
+  if (!pb || !isHome || isSharedView) { el.classList.add('hidden'); return; }
+  el.textContent = t('personal_best_label', { correct: pb.correct, sec: (pb.totalCs / 100).toFixed(2) });
+  el.classList.remove('hidden');
 }
 
 /*--------------------------------------------
@@ -853,6 +893,7 @@ document.addEventListener('DOMContentLoaded', () => {
 document.getElementById('start-btn').onclick = () => {
   document.getElementById('start-btn').classList.add('hidden');
   document.getElementById('precure-count')?.classList.add('hidden');
+  document.getElementById('personal-best')?.classList.add('hidden');
   document.getElementById('leaderboard-area')?.classList.add('hidden');
   hideLangSwitch();
   document.getElementById('timer-row').classList.remove('hidden');
@@ -1287,8 +1328,9 @@ function resetToHome() {
   // 共有パラメータを消す
   history.replaceState(null, '', location.pathname);
 
-  // ランキングを再表示
+  // ランキング・自己ベストを再表示
   renderLeaderboard();
+  updatePersonalBestLabel();
 }
 
 /*--------------------------------------------
@@ -1484,6 +1526,12 @@ function endQuiz() {
 
   // ランキング判定（自分のプレイ時のみ、共有ビューでは行わない）
   const totalTimeCs = Math.round(totalSec * 100);
+
+  // 自己ベスト判定・保存（共有ビューでは記録しない）
+  if (!isSharedView && updatePersonalBest(correctCount, totalTimeCs)) {
+    resArea.innerHTML += `<p class="pb-updated">${t('personal_best_updated')}</p>`;
+  }
+
   if (!isSharedView && API_BASE_URL && isQualified(correctCount, totalTimeCs)) {
     showNameInput(correctCount, totalTimeCs);
   }

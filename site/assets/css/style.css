@@ -152,6 +152,19 @@ button:disabled {
   font-weight: normal;
 }
 
+/* 自己ベスト（ホーム画面） */
+#personal-best {
+  font-size: 0.95em;
+  color: #cc3366;
+  margin: 0 0 10px;
+}
+
+/* 自己ベスト更新メッセージ（結果画面） */
+.pb-updated {
+  color: #ff3399;
+  font-weight: bold;
+}
+
 .result-item {
   margin: 6px 0;
   font-size: 0.95em;
