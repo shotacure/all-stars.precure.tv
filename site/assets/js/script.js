@@ -9,7 +9,7 @@
  *      正解のときは「選択情報を持たない」可変長レコードでURL短縮
  *  - 共有URL復元：#r=（旧 ?r=）パラメータから結果画面を再現
  *  - 初期表示：「いまのプリキュア…Nにん」を表示
- *  - プレイ中演出：タイマー左に歴代記録ゴースト、右に暫定順位を表示
+ *  - プレイ中演出：タイマー左に歴代記録ゴースト、右にペース予測の暫定順位を表示
  *  - 自己ベスト：localStorage に保持しホーム画面に表示、更新時は結果画面で祝う
  *  - ランキング：上位20位をバックエンドと連携して管理
  *      読み取りはS3上のleaderboard.jsonをCloudFront経由で取得
@@ -250,10 +250,8 @@ let isSharedView = false;   // 共有URLからの閲覧か
 /*--------------------------------------------
   プレイ中演出の状態（記録ゴースト・暫定順位）
 --------------------------------------------*/
-let hasWrongAnswer = false;    // 現在のプレイ中に不正解があるか（暫定順位グレーアウト用）
 let ghostTimeline = [];        // タイマー左に流す記録 [{timeCs, label, isLb}]（時間昇順）
 let ghostIdx = 0;              // ghostTimeline の消化位置
-let lbPassedCount = 0;         // 経過時間が上回った満点記録数（暫定順位の算出用）
 let lastRankKey = '';          // 暫定順位表示のDOM更新抑制キャッシュ
 const RANKING_CAPACITY = 100;  // ランキング収容数（超過は圏外表示）
 // アクセシビリティ：動きを減らす設定ではゴーストを流さない
@@ -595,9 +593,12 @@ function renderLeaderboard() {
 /*--------------------------------------------
   プレイ中演出：歴代記録ゴースト & 暫定順位
   - ゴースト：経過時間がランキング記録のタイムに達するたび、
-    タイマー左に「◯位 なまえ」をフワッと流す
-  - 暫定順位：タイマー右に「いまフィニッシュしたら何位か」を表示。
-    不正解がある（＝満点ランキングに載れない）場合はグレーアウト
+    タイマー左のオーバーレイに「◯位 なまえ」をフワッと流す
+    （レイアウトフロー外なのでUIを押し広げない）
+  - 暫定順位：タイマー右に「このペースでフィニッシュしたら何位か」を表示。
+    予測タイム = 経過時間 ÷ 回答済み問数 × 全10問。圏外はグレー表示。
+    プレイ中限定の演出（結果画面では消す）。正誤は結果発表までの
+    お楽しみなので、不正解が出ても表示には一切反映しない（ネタバレ防止）
   - iモードでは updateTimer ごと差し替えられるため自動的に無効
 --------------------------------------------*/
 function buildGhostTimeline() {
@@ -621,6 +622,8 @@ function spawnGhost(item) {
   const el = document.createElement('div');
   el.className = 'timer-ghost' + (item.isLb ? '' : ' timer-ghost-pb');
   el.textContent = item.label;
+  // 直前のゴーストが消える前に重ならないよう、表示中の数だけ上へずらす
+  el.style.bottom = `${area.children.length * 1.2}em`;
   el.addEventListener('animationend', () => el.remove());
   area.appendChild(el);
   // 記録が密集した場合のDOM膨張防止（古いものから間引く）
@@ -629,32 +632,43 @@ function spawnGhost(item) {
 
 function advanceGhosts(elapsedCs) {
   while (ghostIdx < ghostTimeline.length && ghostTimeline[ghostIdx].timeCs <= elapsedCs) {
-    const item = ghostTimeline[ghostIdx];
-    if (item.isLb) lbPassedCount++;
-    if (!REDUCED_MOTION) spawnGhost(item);
+    if (!REDUCED_MOTION) spawnGhost(ghostTimeline[ghostIdx]);
     ghostIdx++;
   }
+}
+
+// leaderboard（totalTimeCs 昇順）から timeCs 未満の記録数を二分探索で数える
+function countFasterThan(timeCs) {
+  let lo = 0, hi = leaderboard.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (leaderboard[mid].totalTimeCs < timeCs) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
 }
 
 function renderProvisionalRank() {
   const el = document.getElementById('timer-rank');
   if (!el) return;
-  const rank = lbPassedCount + 1;
+  // このペースでフィニッシュした場合の予測タイム（センチ秒）
+  // = 経過ms ÷ 回答済み問数 × 10問 ÷ 10(ms→cs) = 経過ms ÷ 回答済み問数
+  // 未回答の間は「いま1問目を答えたら」とみなして予測する
+  const answered = Math.max(results.length, 1);
+  const predictedCs = Math.round(elapsedTime / answered);
+  const rank = countFasterThan(predictedCs) + 1;
   const out = rank > RANKING_CAPACITY;
   const text = out ? t('rank_out') : t('provisional_rank', { n: rank });
-  const gray = hasWrongAnswer || out;
-  const key = text + (gray ? '|g' : '');
+  const key = text + (out ? '|g' : '');
   if (key === lastRankKey) return; // 変化があった時だけDOMを更新（10ms周期対策）
   lastRankKey = key;
   el.textContent = text;
-  el.classList.toggle('rank-gray', gray);
+  el.classList.toggle('rank-gray', out);
 }
 
 function resetPlayEffects() {
-  hasWrongAnswer = false;
   ghostTimeline = [];
   ghostIdx = 0;
-  lbPassedCount = 0;
   lastRankKey = '';
   const ghosts = document.getElementById('timer-ghosts');
   if (ghosts) ghosts.innerHTML = '';
@@ -1374,7 +1388,6 @@ function answer(selectedChoice) {
 
   const q = questions[currentQuestion];
   const isCorrect = (selectedChoice === q.correct);
-  if (!isCorrect) hasWrongAnswer = true; // 暫定順位のグレーアウト用
 
   // 共有用に選択の出典（どの要素のどのカラムか）を推測
   const fieldCode = typeToFieldCode(q.type);
@@ -1423,6 +1436,11 @@ function endQuiz() {
 
   // 結果画面に入った瞬間の秒数を確定
   resultTimerSec = elapsedTime / 1000;
+
+  // 暫定順位はプレイ中限定の演出（フィニッシュ後はもう「暫定」ではない）
+  // タイマーは従来どおり最終タイムを表示したまま残す
+  const finalRankEl = document.getElementById('timer-rank');
+  if (finalRankEl) { finalRankEl.textContent = ''; finalRankEl.classList.remove('rank-gray'); }
 
   document.getElementById('question-area').innerHTML = t('result_heading_html');
   document.getElementById('choices-area').innerHTML  = '';
