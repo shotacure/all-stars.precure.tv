@@ -35,7 +35,12 @@
     </div>
     <div id="precure-count" data-i18n="precure_count_unknown">いまのプリキュア…？にん</div>
     <button id="start-btn" data-i18n="start_btn">スタート！</button>
-    <div id="timer" class="hidden">0.00秒</div>
+    <!-- タイマー行：左=歴代記録ゴースト / 中央=タイマー / 右=暫定順位 -->
+    <div id="timer-row" class="hidden">
+      <div id="timer-ghosts" aria-hidden="true"></div>
+      <div id="timer">0.00秒</div>
+      <div id="timer-rank"></div>
+    </div>
     <div id="question-area"></div>
     <div id="choices-area"></div>
     <div id="result-area"></div>

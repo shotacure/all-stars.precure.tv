@@ -134,6 +134,7 @@
 
     /* ヘッダ画像・タイマー・言語切替を非表示 */
     'body.imode .header-image{display:none!important;}',
+    'body.imode #timer-row{display:none!important;}',
     'body.imode #timer{display:none!important;}',
     'body.imode #lang-switch{display:none!important;}',
 
