@@ -1,0 +1,11 @@
+{
+  "entries": [
+    { "name": "テストいちい", "totalTimeCs": 200 },
+    { "name": "テストにい", "totalTimeCs": 300 },
+    { "name": "テストさんい", "totalTimeCs": 350 },
+    { "name": "テストよんい", "totalTimeCs": 800 },
+    { "name": "テストごい", "totalTimeCs": 1500 },
+    { "name": "テストろくい", "totalTimeCs": 3000 },
+    { "name": "テストなない", "totalTimeCs": 6000 }
+  ]
+}

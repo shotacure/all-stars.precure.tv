@@ -1,0 +1,11 @@
+{
+  "name": "all-stars-e2e",
+  "private": true,
+  "description": "E2E tests for all-stars.precure.tv (Playwright + Edge channel)",
+  "scripts": {
+    "test": "node e2e.js"
+  },
+  "dependencies": {
+    "playwright": "^1.50.0"
+  }
+}

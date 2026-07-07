@@ -46,6 +46,13 @@ const API_BASE_URL = ALLSTARS_CFG.API_BASE_URL || '';
 })();
 
 /*--------------------------------------------
+  DOM ヘルパー
+--------------------------------------------*/
+function $(id) {
+  return document.getElementById(id);
+}
+
+/*--------------------------------------------
   i18n (ja/en)
   - UI文字列を data/i18n/{lang}.json から読み込み
 --------------------------------------------*/
@@ -68,8 +75,8 @@ function v(entry, key) {
 }
 
 
-function showLangSwitch(){document.getElementById('lang-switch')?.classList.remove('hidden');}
-function hideLangSwitch(){document.getElementById('lang-switch')?.classList.add('hidden');}
+function showLangSwitch(){$('lang-switch')?.classList.remove('hidden');}
+function hideLangSwitch(){$('lang-switch')?.classList.add('hidden');}
 function applyI18nToDom() {
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
@@ -88,15 +95,15 @@ function applyI18nToDom() {
 }
 
 function setLangButtonsActive(lang) {
-  const jaBtn = document.getElementById('lang-ja');
-  const enBtn = document.getElementById('lang-en');
+  const jaBtn = $('lang-ja');
+  const enBtn = $('lang-en');
   if (jaBtn) jaBtn.classList.toggle('active', lang === 'ja');
   if (enBtn) enBtn.classList.toggle('active', lang === 'en');
 }
 
 function initLangSwitch() {
-  const jaBtn = document.getElementById('lang-ja');
-  const enBtn = document.getElementById('lang-en');
+  const jaBtn = $('lang-ja');
+  const enBtn = $('lang-en');
 
   const setUrlLang = (lang) => {
     const url = new URL(location.href);
@@ -169,7 +176,7 @@ function buildCopyrightYears(publishedYear, currentYear) {
 }
 
 function updateCopyrightYears() {
-  const el = document.getElementById('copyright-years');
+  const el = $('copyright-years');
   if (!el) return;
   el.textContent = buildCopyrightYears(COPYRIGHT_PUBLISHED_YEAR, new Date().getFullYear());
 }
@@ -180,7 +187,7 @@ function formatSeconds(sec) {
 }
 
 function updatePrecureCountLabel() {
-  const countElem = document.getElementById('precure-count');
+  const countElem = $('precure-count');
   if (!countElem) return;
 
   if (latestPrecureCount == null) {
@@ -211,22 +218,30 @@ async function loadLanguage(lang) {
 }
 
 /*--------------------------------------------
-  通常出題の Q/A マッピング
+  出題タイプ定義（type 1〜10 の意味はすべてここに集約）
+  - questionKey: 問題文に名前を出すフィールド
+  - answerKey  : 正答・選択肢に使うフィールド
+  - i18nKey    : 問題文の i18n キー
+  新しい問題タイプを足すときはこの表に1行追加すればよい。
+  共有URLのビット表現は FIELD_CODES[answerKey] で導出される
 --------------------------------------------*/
-const QANDA = {
-  1: { questionKey: 'transformed', answerKey: 'civilian' },
-  2: { questionKey: 'transformed', answerKey: 'voice' },
-  3: { questionKey: 'civilian',    answerKey: 'transformed' },
-  4: { questionKey: 'civilian',    answerKey: 'voice' },
-  5: { questionKey: 'voice',       answerKey: 'transformed' },
-  6: { questionKey: 'voice',       answerKey: 'civilian' },
+const TYPE_DEFS = {
+  1: { questionKey: 'transformed', answerKey: 'civilian',    i18nKey: 'q_cure_transform_who' },
+  2: { questionKey: 'transformed', answerKey: 'voice',       i18nKey: 'q_cure_actor_who' },
+  3: { questionKey: 'civilian',    answerKey: 'transformed', i18nKey: 'q_transform_who' },
+  4: { questionKey: 'civilian',    answerKey: 'voice',       i18nKey: 'q_civilian_actor_who' },
+  5: { questionKey: 'voice',       answerKey: 'transformed', i18nKey: 'q_actor_who' },
+  6: { questionKey: 'voice',       answerKey: 'civilian',    i18nKey: 'q_actor_who' },
 
   // 追加問題
-  7: { questionKey: 'civilian',    answerKey: 'father' },
-  8: { questionKey: 'civilian',    answerKey: 'mother' },
-  9: { questionKey: 'civilian',    answerKey: 'birthday' },
-  10:{ questionKey: 'transformed', answerKey: 'birthday' }
+  7: { questionKey: 'civilian',    answerKey: 'father',      i18nKey: 'q_civilian_father_who' },
+  8: { questionKey: 'civilian',    answerKey: 'mother',      i18nKey: 'q_civilian_mother_who' },
+  9: { questionKey: 'civilian',    answerKey: 'birthday',    i18nKey: 'q_civilian_birthday_when' },
+  10:{ questionKey: 'transformed', answerKey: 'birthday',    i18nKey: 'q_cure_birthday_when' }
 };
+
+// 共有URLのビット表現（後方互換のため既存の割当を変更しないこと）
+const FIELD_CODES = { civilian: 1, transformed: 2, voice: 3, father: 4, mother: 5, birthday: 6 };
 
 /*--------------------------------------------
   時間上限（超過時は即初期画面リセット）
@@ -279,26 +294,18 @@ function b64uDecode(str) {
 }
 
 /*--------------------------------------------
-  質問タイプ ⇄ データキーの対応
-  - 出題タイプごとにどのフィールドを答えに使うか
+  質問タイプ ⇄ 共有URLビット表現の対応
+  （実体は TYPE_DEFS / FIELD_CODES。ここは導出のみ）
 --------------------------------------------*/
 function typeToFieldCode(t) {
-  if (t === 1 || t === 6) return 1;           // 変身前
-  if (t === 2 || t === 4) return 3;           // 声優
-  if (t === 3 || t === 5) return 2;           // 変身後
-  if (t === 7) return 4;                      // 父親（追加）
-  if (t === 8) return 5;                      // 母親（追加）
-  if (t === 9 || t === 10) return 6;          // 誕生日（追加）
-  return 0;
+  const def = TYPE_DEFS[t];
+  return def ? FIELD_CODES[def.answerKey] : 0;
 }
 function fieldCodeToKey(c) {
-  return c === 1 ? 'civilian'
-       : c === 2 ? 'transformed'
-       : c === 3 ? 'voice'
-       : c === 4 ? 'father'
-       : c === 5 ? 'mother'
-       : c === 6 ? 'birthday'
-       : '';
+  for (const key in FIELD_CODES) {
+    if (FIELD_CODES[key] === c) return key;
+  }
+  return '';
 }
 
 /*--------------------------------------------
@@ -521,8 +528,8 @@ function isQualified(correct, totalTimeCs) {
     21位以降: さらに小さいフォントで改行なしのインライン形式
 --------------------------------------------*/
 function renderLeaderboard() {
-  const area = document.getElementById('leaderboard-area');
-  const list = document.getElementById('leaderboard-list');
+  const area = $('leaderboard-area');
+  const list = $('leaderboard-list');
   if (!area || !list) return;
 
   // ランキングデータがなければ非表示
@@ -617,7 +624,7 @@ function buildGhostTimeline() {
 }
 
 function spawnGhost(item) {
-  const area = document.getElementById('timer-ghosts');
+  const area = $('timer-ghosts');
   if (!area) return;
   const el = document.createElement('div');
   el.className = 'timer-ghost' + (item.isLb ? '' : ' timer-ghost-pb');
@@ -649,7 +656,7 @@ function countFasterThan(timeCs) {
 }
 
 function renderProvisionalRank() {
-  const el = document.getElementById('timer-rank');
+  const el = $('timer-rank');
   if (!el) return;
   // このペースでフィニッシュした場合の予測タイム（センチ秒）
   // = 経過ms ÷ 回答済み問数 × 10問 ÷ 10(ms→cs) = 経過ms ÷ 回答済み問数
@@ -670,9 +677,9 @@ function resetPlayEffects() {
   ghostTimeline = [];
   ghostIdx = 0;
   lastRankKey = '';
-  const ghosts = document.getElementById('timer-ghosts');
+  const ghosts = $('timer-ghosts');
   if (ghosts) ghosts.innerHTML = '';
-  const rankEl = document.getElementById('timer-rank');
+  const rankEl = $('timer-rank');
   if (rankEl) { rankEl.textContent = ''; rankEl.classList.remove('rank-gray'); }
 }
 
@@ -699,11 +706,11 @@ function updatePersonalBest(correct, totalCs) {
 }
 
 function updatePersonalBestLabel() {
-  const el = document.getElementById('personal-best');
+  const el = $('personal-best');
   if (!el) return;
   const pb = loadPersonalBest();
   // ホーム画面（スタートボタンが見えている状態）でのみ表示
-  const isHome = !document.getElementById('start-btn')?.classList.contains('hidden');
+  const isHome = !$('start-btn')?.classList.contains('hidden');
   if (!pb || !isHome || isSharedView) { el.classList.add('hidden'); return; }
   el.textContent = t('personal_best_label', { correct: pb.correct, sec: (pb.totalCs / 100).toFixed(2) });
   el.classList.remove('hidden');
@@ -792,7 +799,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ランキングを非同期で読み込み（表示はloadLanguage内のrenderLeaderboardで行う）
   loadLeaderboard().then(() => renderLeaderboard());
 
-  const countElem = document.getElementById('precure-count');
+  const countElem = $('precure-count');
 
   // 1) 人数の即表示（window.PRECURE_COUNT優先、なければローカルキャッシュ）
   if (typeof window.PRECURE_COUNT === 'number') {
@@ -825,9 +832,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!rParam) return;
 
   isSharedView = true;
-  document.getElementById('start-btn')?.classList.add('hidden');
-  document.getElementById('precure-count')?.classList.add('hidden');
-  document.getElementById('timer-row')?.classList.add('hidden');
+  $('start-btn')?.classList.add('hidden');
+  $('precure-count')?.classList.add('hidden');
+  $('timer-row')?.classList.add('hidden');
 
   fetch('data/precure.json')
     .then(res => res.json())
@@ -843,25 +850,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const entry = quizData[it.i];
         if (!entry) return;
 
-        // 質問文の再生成（タイプ別）
-        let qText = '';
-        if (it.t === 1)      qText = t('q_cure_transform_who', { name: v(entry,'transformed') });
-        else if (it.t === 2) qText = t('q_cure_actor_who', { name: v(entry,'transformed') });
-        else if (it.t === 3) qText = t('q_transform_who', { name: v(entry,'civilian') });
-        else if (it.t === 4) qText = t('q_civilian_actor_who', { name: v(entry,'civilian') });
-        else if (it.t === 5) qText = t('q_actor_who', { name: v(entry,'voice') });
-        else if (it.t === 6) qText = t('q_actor_who', { name: v(entry,'voice') });
-        else if (it.t === 7) qText = t('q_civilian_father_who', { name: v(entry,'civilian') });
-        else if (it.t === 8) qText = t('q_civilian_mother_who', { name: v(entry,'civilian') });
-        else if (it.t === 9) qText = t('q_civilian_birthday_when', { name: v(entry,'civilian') });
-        else if (it.t === 10) qText = t('q_cure_birthday_when', { name: v(entry,'transformed') });
-
-        // 正答
-        const correctAnswer =
-            it.t === 7 ? v(entry,'father')
-          : it.t === 8 ? v(entry,'mother')
-          : (it.t === 9 || it.t === 10) ? v(entry,'birthday')
-          : v(entry, fieldCodeToKey(typeToFieldCode(it.t)));
+        // 質問文・正答はタイプ定義から再生成（出題時と同一ロジック）
+        const qText = buildQuestionText(it.t, entry);
+        const correctAnswer = v(entry, answerKeyByType(it.t));
 
         // ユーザー解答（正解なら選択データを持っていない → 正答と同じ）
         let userAnswer;
@@ -904,13 +895,13 @@ document.addEventListener('DOMContentLoaded', () => {
   スタートボタン：初期UIを隠し、データ読込→開始
   - セッショントークンも並行して取得
 --------------------------------------------*/
-document.getElementById('start-btn').onclick = () => {
-  document.getElementById('start-btn').classList.add('hidden');
-  document.getElementById('precure-count')?.classList.add('hidden');
-  document.getElementById('personal-best')?.classList.add('hidden');
-  document.getElementById('leaderboard-area')?.classList.add('hidden');
+$('start-btn').onclick = () => {
+  $('start-btn').classList.add('hidden');
+  $('precure-count')?.classList.add('hidden');
+  $('personal-best')?.classList.add('hidden');
+  $('leaderboard-area')?.classList.add('hidden');
   hideLangSwitch();
-  document.getElementById('timer-row').classList.remove('hidden');
+  $('timer-row').classList.remove('hidden');
 
   // データ読込とセッショントークン取得を並行実行
   Promise.all([
@@ -991,46 +982,27 @@ function pickCandidate(arr, type, correctItem) {
   const e = arr[Math.floor(Math.random() * arr.length)];
   if (!e) return null;
 
-  const qa = QANDA[type];
-  if (qa) {
-    const sameQ = (v(e, qa.questionKey) === v(correctItem, qa.questionKey));
-    const diffA = (v(e, qa.answerKey)   !== v(correctItem, qa.answerKey));
+  const def = TYPE_DEFS[type];
+  if (def) {
+    const sameQ = (v(e, def.questionKey) === v(correctItem, def.questionKey));
+    const diffA = (v(e, def.answerKey)   !== v(correctItem, def.answerKey));
     if (sameQ && diffA) return null; // 「同一人物の別形態」などは除外
   }
   return pickAnswerByType(e, type);
 }
 function pickAnswerByType(entry, type) {
-  switch (type) {
-    case 1: case 6: return v(entry,'civilian');
-    case 2: case 4: return v(entry,'voice');
-    case 3: case 5: return v(entry,'transformed');
-    default:        return null;
-  }
+  const def = TYPE_DEFS[type];
+  return def ? v(entry, def.answerKey) : null;
 }
 
 function buildQuestionText(type, entry) {
-  switch (type) {
-    case 1: return t('q_cure_transform_who', { name: v(entry,'transformed') });
-    case 2: return t('q_cure_actor_who', { name: v(entry,'transformed') });
-    case 3: return t('q_transform_who', { name: v(entry,'civilian') });
-    case 4: return t('q_civilian_actor_who', { name: v(entry,'civilian') });
-    case 5: return t('q_actor_who', { name: v(entry,'voice') });
-    case 6: return t('q_actor_who', { name: v(entry,'voice') });
-
-    // 追加問題
-    case 7: return t('q_civilian_father_who', { name: v(entry,'civilian') });
-    case 8: return t('q_civilian_mother_who', { name: v(entry,'civilian') });
-    case 9: return t('q_civilian_birthday_when', { name: v(entry,'civilian') });
-    case 10:return t('q_cure_birthday_when', { name: v(entry,'transformed') });
-    default: return '';
-  }
+  const def = TYPE_DEFS[type];
+  return def ? t(def.i18nKey, { name: v(entry, def.questionKey) }) : '';
 }
 
 function answerKeyByType(type) {
-  if (type === 7) return 'father';
-  if (type === 8) return 'mother';
-  if (type === 9 || type === 10) return 'birthday';
-  return fieldCodeToKey(typeToFieldCode(type));
+  const def = TYPE_DEFS[type];
+  return def ? def.answerKey : '';
 }
 
 function rebuildQuestionsForLang() {
@@ -1085,7 +1057,7 @@ function rebuildResultsForLang() {
 
 function refreshLanguageSensitiveUI() {
   // タイマー
-  const timer = document.getElementById('timer');
+  const timer = $('timer');
   if (timer) {
     // 結果画面：確定値で固定（絶対に再計算しない）
     if (resultTimerSec != null) {
@@ -1097,9 +1069,9 @@ function refreshLanguageSensitiveUI() {
   }
 
   // 出題中なら問題文と選択肢を差し替え
-  const startBtn = document.getElementById('start-btn');
+  const startBtn = $('start-btn');
   const inQuiz = startBtn && startBtn.classList.contains('hidden') && Array.isArray(questions) && questions.length && currentQuestion < questions.length;
-  const hasResult = document.getElementById('result-area') && document.getElementById('result-area').innerHTML.trim() !== '';
+  const hasResult = $('result-area') && $('result-area').innerHTML.trim() !== '';
 
   if (hasResult) {
     // 結果画面の文言差し替え（再描画）
@@ -1117,122 +1089,87 @@ function refreshLanguageSensitiveUI() {
   - 正解に使ったキャラは重複させない
   - 誤答は可能なら同シリーズ70%優先
 --------------------------------------------*/
+/*--------------------------------------------
+  通常問題（type 1〜6）を1問組み立てて questions に追加
+  - series 優先確率を適用しつつ、該当 type の回答が作れるものだけ候補にする
+  - 誤答は可能なら同シリーズ70%優先
+  - 組み立てられなければ false（呼び出し側でリトライ）
+--------------------------------------------*/
+function buildStandardQuestion(type, used) {
+  const entry = pickEntryWithSeriesBias(used, (e) => !!pickAnswerByType(e, type));
+  if (!entry) return false;
+
+  const answer = pickAnswerByType(entry, type);
+  if (!answer) return false; // 未定義（空）なら問題にしない
+
+  const same  = quizData.filter(e => e.series === entry.series);
+  const other = quizData.filter(e => e.series !== entry.series);
+
+  const choices = [answer];
+  let guard = 0; // 候補が枯渇した場合の保険（従来は無限ループの可能性があった）
+  while (choices.length < 4 && guard++ < 400) {
+    const from = (Math.random() < 0.7 && same.length) ? same : other;
+    const cand = pickCandidate(from, type, entry);
+    if (!cand || choices.includes(cand)) continue;
+    choices.push(cand);
+  }
+  if (choices.length < 4) return false;
+
+  choices.sort(() => Math.random() - 0.5);
+
+  const aKey = answerKeyByType(type);
+  questions.push({
+    question: buildQuestionText(type, entry),
+    choices,
+    correct: answer,
+    type,
+    entryIndex: quizData.indexOf(entry),
+    choiceEntryIndices: choices.map(c => quizData.findIndex(e => v(e, aKey) === c))
+  });
+  used.add(entry);
+  return true;
+}
+
 function generateQuestions() {
   questions = [];
   const used = new Set(); // 正解に使ったエントリ
-  let vCount = 0, oCount = 0;
 
   // 無限ループ防止（データ欠損が多い場合の保険）
   let guard = 0;
 
   // 声優2問（type: 2/4/5/6 からランダム）
+  let vCount = 0;
   guard = 0;
   while (vCount < 2 && guard++ < 2000) {
     const type = [2, 4, 5, 6][Math.floor(Math.random() * 4)];
-
-    // series 優先確率を適用しつつ、該当 type の回答が作れるものだけ候補にする
-    const entry = pickEntryWithSeriesBias(used, (e) => !!pickAnswerByType(e, type));
-    if (!entry) break;
-
-    let q = '', a = '';
-    a = pickAnswerByType(entry, type);
-    if (!a) continue; // 未定義（空）なら問題にしない
-    q = buildQuestionText(type, entry);
-
-    const choices = [a];
-    while (choices.length < 4) {
-      const same  = quizData.filter(e => e.series === entry.series);
-      const other = quizData.filter(e => e.series !== entry.series);
-      const from  = (Math.random() < 0.7 && same.length) ? same : other;
-      const cand  = pickCandidate(from, type, entry);
-      if (!cand || choices.includes(cand)) continue;
-      choices.push(cand);
-    }
-    choices.sort(() => Math.random() - 0.5);
-
-    const qType = (typeof type !== 'undefined') ? type : typeCode;
-    const aKey = answerKeyByType(qType);
-    const choiceEntryIndices = choices.map(c => quizData.findIndex(e => v(e, aKey) === c));
-
-    questions.push({
-      question: q,
-      choices,
-      correct: a,
-      type,
-      entryIndex: quizData.indexOf(entry),
-      choiceEntryIndices
-    });
-    used.add(entry);
-    vCount++;
+    if (buildStandardQuestion(type, used)) vCount++;
   }
 
-
   // その他7問（type: 1/3）
+  let oCount = 0;
   guard = 0;
   while (oCount < 7 && guard++ < 4000) {
     const type = [1, 3][Math.floor(Math.random() * 2)];
-
-    const entry = pickEntryWithSeriesBias(used, (e) => !!pickAnswerByType(e, type));
-    if (!entry) break;
-
-    let q = '', a = '';
-    a = pickAnswerByType(entry, type);
-    if (!a) continue; // 未定義（空）なら問題にしない
-    q = buildQuestionText(type, entry);
-
-    const choices = [a];
-    while (choices.length < 4) {
-      const same  = quizData.filter(e => e.series === entry.series);
-      const other = quizData.filter(e => e.series !== entry.series);
-      const from  = (Math.random() < 0.7 && same.length) ? same : other;
-      const cand  = pickCandidate(from, type, entry);
-      if (!cand || choices.includes(cand)) continue;
-      choices.push(cand);
-    }
-    choices.sort(() => Math.random() - 0.5);
-
-    const qType = (typeof type !== 'undefined') ? type : typeCode;
-    const aKey = answerKeyByType(qType);
-    const choiceEntryIndices = choices.map(c => quizData.findIndex(e => v(e, aKey) === c));
-
-    questions.push({
-      question: q,
-      choices,
-      correct: a,
-      type,
-      entryIndex: quizData.indexOf(entry),
-      choiceEntryIndices
-    });
-    used.add(entry);
-    oCount++;
+    if (buildStandardQuestion(type, used)) oCount++;
   }
 
   // 追加1問（父30%／母30%／誕生日A20%／誕生日B20%）
   const patterns = [
-    { key: 'father',    p: 0.3 },
-    { key: 'mother',    p: 0.3 },
-    { key: 'birthdayA', p: 0.2 },
-    { key: 'birthdayB', p: 0.2 }
+    { typeCode: 7,  p: 0.3 },  // 父
+    { typeCode: 8,  p: 0.3 },  // 母
+    { typeCode: 9,  p: 0.2 },  // 誕生日（変身前で出題）
+    { typeCode: 10, p: 0.2 }   // 誕生日（プリキュアで出題）
   ];
-  let roll = Math.random(), acc = 0, sel = null;
-  for (const p of patterns) { acc += p.p; if (roll < acc) { sel = p.key; break; } }
+  let roll = Math.random(), acc = 0, typeCode = 10;
+  for (const p of patterns) { acc += p.p; if (roll < acc) { typeCode = p.typeCode; break; } }
 
-  const addEntry = pickEntryWithSeriesBias(used, (e) => {
-    if (sel === 'father') return !!v(e,'father');
-    if (sel === 'mother') return !!v(e,'mother');
-    if (sel === 'birthdayA' || sel === 'birthdayB') return !!v(e,'birthday');
-    return false;
-  });
+  const fieldKey = answerKeyByType(typeCode);
+  const addEntry = pickEntryWithSeriesBias(used, (e) => !!v(e, fieldKey));
 
   if (addEntry) {
-    let q = '', a = '', typeCode = 0;
-    if (sel === 'father')     { q = t('q_civilian_father_who', { name: v(addEntry,'civilian') });   a = v(addEntry,'father');   typeCode = 7;  }
-    else if (sel === 'mother'){ q = t('q_civilian_mother_who', { name: v(addEntry,'civilian') });   a = v(addEntry,'mother');   typeCode = 8;  }
-    else if (sel === 'birthdayA'){ q = t('q_civilian_birthday_when', { name: v(addEntry,'civilian') }); a = v(addEntry,'birthday'); typeCode = 9;  }
-    else                      { q = t('q_cure_birthday_when', { name: v(addEntry,'transformed') });     a = v(addEntry,'birthday'); typeCode = 10; }
+    const a = v(addEntry, fieldKey);
 
     // 誤答候補：可能な限り同シリーズから
-    const fieldKey = (sel === 'father') ? 'father' : (sel === 'mother') ? 'mother' : 'birthday';
     const same  = quizData.filter(e => e.series === addEntry.series && v(e, fieldKey));
     const other = quizData.filter(e => e.series !== addEntry.series && v(e, fieldKey));
 
@@ -1258,18 +1195,14 @@ function generateQuestions() {
 
     choices.sort(() => Math.random() - 0.5);
 
-    const qType = (typeof type !== 'undefined') ? type : typeCode;
-    const aKey = answerKeyByType(qType);
-    const choiceEntryIndices = choices.map(c => quizData.findIndex(e => v(e, aKey) === c));
-
     questions.push({
-      question: q,
+      question: buildQuestionText(typeCode, addEntry),
       choices,
       correct: a,
       type: typeCode,
       additional: true,
       entryIndex: quizData.indexOf(addEntry),
-      choiceEntryIndices
+      choiceEntryIndices: choices.map(c => quizData.findIndex(e => v(e, fieldKey) === c))
     });
   }
 }
@@ -1299,7 +1232,7 @@ function startQuiz() {
 function updateTimer() {
   elapsedTime = Date.now() - startTime;
   const s = elapsedTime / 1000;
-  document.getElementById('timer').textContent = formatSeconds(s);
+  $('timer').textContent = formatSeconds(s);
 
   // プレイ中演出：経過に応じて記録ゴーストを流し、暫定順位を更新
   advanceGhosts(elapsedTime / 10);
@@ -1324,20 +1257,20 @@ function resetToHome() {
   resultTimerSec = null; // 結果確定時間リセット
   sessionToken = null;
 
-  document.getElementById('result-area').innerHTML = '';
-  document.getElementById('timer').textContent = formatSeconds(0);
-  document.getElementById('timer-row').classList.add('hidden');
+  $('result-area').innerHTML = '';
+  $('timer').textContent = formatSeconds(0);
+  $('timer-row').classList.add('hidden');
   resetPlayEffects();
-  document.getElementById('start-btn').classList.remove('hidden');
-  document.getElementById('precure-count')?.classList.remove('hidden');
-  document.getElementById('lang-switch')?.classList.remove('hidden');
-  document.getElementById('retry-btn').classList.add('hidden');
-  document.getElementById('tweet-btn').classList.add('hidden');
-  document.getElementById('question-area').innerHTML = '';
-  document.getElementById('choices-area').innerHTML = '';
-  document.getElementById('name-input-area')?.classList.add('hidden');
-  document.getElementById('name-error')?.classList.add('hidden');
-  document.getElementById('name-pending-message')?.classList.add('hidden');
+  $('start-btn').classList.remove('hidden');
+  $('precure-count')?.classList.remove('hidden');
+  $('lang-switch')?.classList.remove('hidden');
+  $('retry-btn').classList.add('hidden');
+  $('tweet-btn').classList.add('hidden');
+  $('question-area').innerHTML = '';
+  $('choices-area').innerHTML = '';
+  $('name-input-area')?.classList.add('hidden');
+  $('name-error')?.classList.add('hidden');
+  $('name-pending-message')?.classList.add('hidden');
 
   // 共有パラメータを消す
   history.replaceState(null, '', location.pathname);
@@ -1354,9 +1287,9 @@ function showQuestion() {
   if (currentQuestion >= questions.length) { endQuiz(); return; }
 
   const q = questions[currentQuestion];
-  document.getElementById('question-area').textContent = q.question;
+  $('question-area').textContent = q.question;
 
-  const area = document.getElementById('choices-area');
+  const area = $('choices-area');
   area.innerHTML = '';
 
   q.choices.forEach(choice => {
@@ -1425,32 +1358,13 @@ function answer(selectedChoice) {
 }
 
 /*--------------------------------------------
-  結果表示 & 共有URL生成 & ランキング判定
-  - 詳細結果（各問の○×・時間・正答）
-  - 共有URLを作ってツイート誘導
-  - 共有ビュー時はツイート非表示／「あそんでみる」に文言変更
-  - ランクインならば名前入力UIを表示
+  結果画面の部品（endQuiz から呼ばれる）
 --------------------------------------------*/
-function endQuiz() {
-  clearInterval(timerInterval);
 
-  // 結果画面に入った瞬間の秒数を確定
-  resultTimerSec = elapsedTime / 1000;
-
-  // 暫定順位はプレイ中限定の演出（フィニッシュ後はもう「暫定」ではない）
-  // タイマーは従来どおり最終タイムを表示したまま残す
-  const finalRankEl = document.getElementById('timer-rank');
-  if (finalRankEl) { finalRankEl.textContent = ''; finalRankEl.classList.remove('rank-gray'); }
-
-  document.getElementById('question-area').innerHTML = t('result_heading_html');
-  document.getElementById('choices-area').innerHTML  = '';
-
-  const resArea = document.getElementById('result-area');
-  resArea.innerHTML = '';
-
+// 各問の詳細（○×・時間・正答）を resArea に描画し、正解数を返す
+function renderResultDetails(resArea) {
   let correctCount = 0;
 
-  // 各問の詳細
   results.forEach((r, i) => {
     const d = document.createElement('div');
     d.className = 'result-detail';
@@ -1478,11 +1392,11 @@ function endQuiz() {
     resArea.appendChild(d);
   });
 
-  // 合計時間とメッセージ
-  const totalSec  = elapsedTime / 1000;
-  const totalText = totalSec.toFixed(2);
+  return correctCount;
+}
 
-  // ほめコメント
+// ほめコメント・はやさコメントを選ぶ
+function buildResultComments(correctCount, totalSec) {
   let praise = '';
   if (correctCount === 10)      praise = t('praise_perfect');
   else if (correctCount >= 7)   praise = t('praise_very_good');
@@ -1490,20 +1404,20 @@ function endQuiz() {
   else if (correctCount >= 1)   praise = t('praise_close');
   else                          praise = t('praise_finish');
 
-  // はやさコメント
   let speedComment = '';
   if (totalSec < 15)      speedComment = t('speed_very_fast');
   else if (totalSec < 30) speedComment = t('speed_fast');
   else if (totalSec < 60) speedComment = t('speed_ok');
   else                    speedComment = t('speed_think');
 
-  // 合計スコア表示
-  resArea.innerHTML += t('result_score_time_html', { correct: correctCount, sec: totalText });
-  resArea.innerHTML += t('result_praise_speed_html', { praise, speed: speedComment });
+  return { praise, speedComment };
+}
 
-  // ボタン設定
-  const tweetBtn = document.getElementById('tweet-btn');
-  const retryBtn = document.getElementById('retry-btn');
+// 共有URLを生成してアドレスバーを共有形式に更新し、ツイート/リトライボタンを設定
+function setupResultButtons(correctCount, totalSec, praise, speedComment) {
+  const totalText = totalSec.toFixed(2);
+  const tweetBtn = $('tweet-btn');
+  const retryBtn = $('retry-btn');
 
   // 共有URL生成（合計は16bit上限で丸め、エンコード）
   const totalCs16 = Math.min(65535, Math.max(0, Math.round(totalSec * 100)));
@@ -1541,11 +1455,12 @@ function endQuiz() {
       location.href = location.origin + location.pathname + (currentLang === 'en' ? '?en' : '');
     };
   }
+}
 
-  // ランキング判定（自分のプレイ時のみ、共有ビューでは行わない）
+// 自己ベスト保存とランクイン判定（いずれも共有ビューでは行わない）
+function finalizeRecords(resArea, correctCount, totalSec) {
   const totalTimeCs = Math.round(totalSec * 100);
 
-  // 自己ベスト判定・保存（共有ビューでは記録しない）
   if (!isSharedView && updatePersonalBest(correctCount, totalTimeCs)) {
     resArea.innerHTML += `<p class="pb-updated">${t('personal_best_updated')}</p>`;
   }
@@ -1553,6 +1468,49 @@ function endQuiz() {
   if (!isSharedView && API_BASE_URL && isQualified(correctCount, totalTimeCs)) {
     showNameInput(correctCount, totalTimeCs);
   }
+}
+
+/*--------------------------------------------
+  結果表示 & 共有URL生成 & ランキング判定
+  - 詳細結果（各問の○×・時間・正答）
+  - 共有URLを作ってツイート誘導
+  - 共有ビュー時はツイート非表示／「あそんでみる」に文言変更
+  - ランクインならば名前入力UIを表示
+  - 言語切替時は refreshLanguageSensitiveUI から再実行される（再入可能）
+--------------------------------------------*/
+function endQuiz() {
+  clearInterval(timerInterval);
+
+  // 結果画面に入った瞬間の秒数を確定
+  resultTimerSec = elapsedTime / 1000;
+
+  // 暫定順位はプレイ中限定の演出（フィニッシュ後はもう「暫定」ではない）
+  // タイマーは従来どおり最終タイムを表示したまま残す
+  const finalRankEl = $('timer-rank');
+  if (finalRankEl) { finalRankEl.textContent = ''; finalRankEl.classList.remove('rank-gray'); }
+
+  $('question-area').innerHTML = t('result_heading_html');
+  $('choices-area').innerHTML  = '';
+
+  const resArea = $('result-area');
+  resArea.innerHTML = '';
+
+  // 各問の詳細
+  const correctCount = renderResultDetails(resArea);
+
+  // 合計時間とメッセージ
+  const totalSec = elapsedTime / 1000;
+  const { praise, speedComment } = buildResultComments(correctCount, totalSec);
+
+  // 合計スコア表示
+  resArea.innerHTML += t('result_score_time_html', { correct: correctCount, sec: totalSec.toFixed(2) });
+  resArea.innerHTML += t('result_praise_speed_html', { praise, speed: speedComment });
+
+  // 共有URL・ツイート/リトライボタン
+  setupResultButtons(correctCount, totalSec, praise, speedComment);
+
+  // 自己ベスト・ランクイン判定
+  finalizeRecords(resArea, correctCount, totalSec);
 
   // ランキング表示
   renderLeaderboard();
@@ -1568,10 +1526,10 @@ function endQuiz() {
   - 送信成功で承認待ちメッセージまたは記録更新メッセージを表示
 --------------------------------------------*/
 function showNameInput(correctCount, totalTimeCs) {
-  const area = document.getElementById('name-input-area');
-  const oldInput = document.getElementById('name-input');
-  const oldSubmitBtn = document.getElementById('name-submit-btn');
-  const errorEl = document.getElementById('name-error');
+  const area = $('name-input-area');
+  const oldInput = $('name-input');
+  const oldSubmitBtn = $('name-submit-btn');
+  const errorEl = $('name-error');
 
   if (!area || !oldInput || !oldSubmitBtn) return;
 
@@ -1633,9 +1591,9 @@ function showNameInput(correctCount, totalTimeCs) {
           // 承認待ちに既にベストスコアがある → 更新なし
           input.classList.add('hidden');
           submitBtn.classList.add('hidden');
-          const msgEl = document.getElementById('name-input-message');
+          const msgEl = $('name-input-message');
           if (msgEl) msgEl.classList.add('hidden');
-          const notUpdatedEl = document.getElementById('name-pending-message');
+          const notUpdatedEl = $('name-pending-message');
           if (notUpdatedEl) {
             notUpdatedEl.textContent = t('leaderboard_not_updated_message');
             notUpdatedEl.classList.remove('hidden');
@@ -1644,9 +1602,9 @@ function showNameInput(correctCount, totalTimeCs) {
           // 承認待ち：入力フォームを隠して承認待ちメッセージを表示
           input.classList.add('hidden');
           submitBtn.classList.add('hidden');
-          const msgEl = document.getElementById('name-input-message');
+          const msgEl = $('name-input-message');
           if (msgEl) msgEl.classList.add('hidden');
-          const pendingEl = document.getElementById('name-pending-message');
+          const pendingEl = $('name-pending-message');
           if (pendingEl) {
             pendingEl.textContent = t('leaderboard_pending_message');
             pendingEl.classList.remove('hidden');
@@ -1657,9 +1615,9 @@ function showNameInput(correctCount, totalTimeCs) {
           if (entries.length) { leaderboard = entries; renderLeaderboard(); }
           input.classList.add('hidden');
           submitBtn.classList.add('hidden');
-          const msgEl = document.getElementById('name-input-message');
+          const msgEl = $('name-input-message');
           if (msgEl) msgEl.classList.add('hidden');
-          const notUpdatedEl = document.getElementById('name-pending-message');
+          const notUpdatedEl = $('name-pending-message');
           if (notUpdatedEl) {
             notUpdatedEl.textContent = t('leaderboard_not_updated_message');
             notUpdatedEl.classList.remove('hidden');
@@ -1670,9 +1628,9 @@ function showNameInput(correctCount, totalTimeCs) {
           renderLeaderboard();
           input.classList.add('hidden');
           submitBtn.classList.add('hidden');
-          const msgEl = document.getElementById('name-input-message');
+          const msgEl = $('name-input-message');
           if (msgEl) msgEl.classList.add('hidden');
-          const autoEl = document.getElementById('name-pending-message');
+          const autoEl = $('name-pending-message');
           if (autoEl) {
             autoEl.textContent = t('leaderboard_record_updated_message');
             autoEl.classList.remove('hidden');
