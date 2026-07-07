@@ -237,11 +237,20 @@ const TYPE_DEFS = {
   7: { questionKey: 'civilian',    answerKey: 'father',      i18nKey: 'q_civilian_father_who' },
   8: { questionKey: 'civilian',    answerKey: 'mother',      i18nKey: 'q_civilian_mother_who' },
   9: { questionKey: 'civilian',    answerKey: 'birthday',    i18nKey: 'q_civilian_birthday_when' },
-  10:{ questionKey: 'transformed', answerKey: 'birthday',    i18nKey: 'q_cure_birthday_when' }
+  10:{ questionKey: 'transformed', answerKey: 'birthday',    i18nKey: 'q_cure_birthday_when' },
+
+  // 名乗り口上（v1.3.0）
+  // - 同一口上のペア（ブラック/ホワイト、マシェリ/アムール）は
+  //   pickCandidate の sameQ && diffA 除外により正解重複が起きない
+  // - ブルーム/ブライト等の同一人物別形態は口上が異なるため同居可能
+  11:{ questionKey: 'rollcall',    answerKey: 'transformed', i18nKey: 'q_rollcall_who' },
+  12:{ questionKey: 'transformed', answerKey: 'rollcall',    i18nKey: 'q_rollcall_what' }
 };
 
 // 共有URLのビット表現（後方互換のため既存の割当を変更しないこと）
-const FIELD_CODES = { civilian: 1, transformed: 2, voice: 3, father: 4, mother: 5, birthday: 6 };
+// rollcall=7 は 3bit フィールドの最後の空き。これ以上のフィールド追加は
+// 共有フォーマットのバージョンアップが必要になる
+const FIELD_CODES = { civilian: 1, transformed: 2, voice: 3, father: 4, mother: 5, birthday: 6, rollcall: 7 };
 
 /*--------------------------------------------
   時間上限（超過時は即初期画面リセット）
@@ -1145,12 +1154,21 @@ function generateQuestions() {
     if (buildStandardQuestion(type, used)) vCount++;
   }
 
-  // その他7問（type: 1/3）
+  // その他5問（type: 1/3）
+  // ※v1.3.0暫定配分：口上2枠の確保のため7→5に。バランスはリリースまでに再検討
   let oCount = 0;
   guard = 0;
-  while (oCount < 7 && guard++ < 4000) {
+  while (oCount < 5 && guard++ < 4000) {
     const type = [1, 3][Math.floor(Math.random() * 2)];
     if (buildStandardQuestion(type, used)) oCount++;
+  }
+
+  // 名乗り口上2問（各方向1問ずつ：11=口上→キュア、12=キュア→口上）
+  for (const type of [11, 12]) {
+    guard = 0;
+    while (guard++ < 2000) {
+      if (buildStandardQuestion(type, used)) break;
+    }
   }
 
   // 追加1問（父30%／母30%／誕生日A20%／誕生日B20%）

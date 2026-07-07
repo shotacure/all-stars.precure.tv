@@ -43,6 +43,8 @@
   "q_civilian_mother_who": "Who is {{name}}'s mother?",
   "q_civilian_birthday_when": "When is {{name}}'s birthday?",
   "q_cure_birthday_when": "When is {{name}}'s birthday?",
+  "q_rollcall_who": "Who introduces themselves as \"{{name}}\"?",
+  "q_rollcall_what": "What is {{name}}'s roll call?",
   "btn_lang_ja": "にほんご",
   "btn_lang_en": "English",
   "result_score_time_html": "<h2>Score: {{correct}}/10<br>Time: {{sec}} seconds</h2>",

@@ -43,6 +43,8 @@
   "q_civilian_mother_who": "{{name}}のお母さんは誰？",
   "q_civilian_birthday_when": "{{name}}の誕生日はいつ？",
   "q_cure_birthday_when": "{{name}}の誕生日はいつ？",
+  "q_rollcall_who": "「{{name}}」と名乗るのは誰？",
+  "q_rollcall_what": "{{name}}の名乗りは？",
   "btn_lang_ja": "にほんご",
   "btn_lang_en": "English",
   "result_score_time_html": "<h2>せいかいしたかず：{{correct}}/10<br>かかったじかん：{{sec}}びょう</h2>",
