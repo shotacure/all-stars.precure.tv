@@ -22,6 +22,13 @@ const MAX_NAME_LENGTH = 16;
 const TOP_N = 100;
 const TOTAL_QUESTIONS = 10;
 
+// 記録バージョン（問題構成の変更でランキングを仕切り直す際に上げる）
+// "1" は従来の無印キー（leaderboard / pendings）にマップされ、過去データはそのまま残る
+// audits / tokens はバージョン非依存で共有
+const RECORDS_VERSION = process.env.RECORDS_VERSION || "1";
+const LEADERBOARD_PK = RECORDS_VERSION === "1" ? "leaderboard" : `leaderboard#v${RECORDS_VERSION}`;
+const PENDINGS_PK = RECORDS_VERSION === "1" ? "pendings" : `pendings#v${RECORDS_VERSION}`;
+
 // ネットワーク遅延を考慮したタイム検証の許容誤差（ミリ秒）
 const TIME_TOLERANCE_MS = 3000;
 // トークン有効期限（ミリ秒）：クイズ所要時間を考慮して10分
@@ -321,7 +328,7 @@ async function writeAuditLog(nonce, details) {
 
 /**
  * 承認待ちエントリを DynamoDB に保存（単一レコード集約型）
- * - 単一レコード（pk: "pendings"）の entries マップに名前をキーとして格納
+ * - 単一レコード（pk: PENDINGS_PK）の entries マップに名前をキーとして格納
  * - 書き込み時に有効期限切れ（30日超）のエントリを自動除去
  * - 楽観的ロックで同時書き込みの競合を防止
  * @param {string} name - サニタイズ済みの名前
@@ -329,9 +336,9 @@ async function writeAuditLog(nonce, details) {
  */
 async function writePendingEntry(name, entry) {
   const getResult = await ddb.send(
-    new GetCommand({ TableName: TABLE_NAME, Key: { pk: "pendings" } })
+    new GetCommand({ TableName: TABLE_NAME, Key: { pk: PENDINGS_PK } })
   );
-  const current = getResult.Item || { pk: "pendings", entries: {}, version: 0 };
+  const current = getResult.Item || { pk: PENDINGS_PK, entries: {}, version: 0 };
   const entries = current.entries || {};
   const version = current.version || 0;
 
@@ -349,7 +356,7 @@ async function writePendingEntry(name, entry) {
   await ddb.send(
     new PutCommand({
       TableName: TABLE_NAME,
-      Item: { pk: "pendings", entries: pruned, version: version + 1 },
+      Item: { pk: PENDINGS_PK, entries: pruned, version: version + 1 },
       ConditionExpression: "attribute_not_exists(version) OR version = :v",
       ExpressionAttributeValues: { ":v": version },
     })
@@ -363,7 +370,7 @@ async function writePendingEntry(name, entry) {
  */
 async function getPendingEntry(name) {
   const result = await ddb.send(
-    new GetCommand({ TableName: TABLE_NAME, Key: { pk: "pendings" } })
+    new GetCommand({ TableName: TABLE_NAME, Key: { pk: PENDINGS_PK } })
   );
   return result.Item?.entries?.[name] || null;
 }
@@ -652,10 +659,10 @@ export const handler = async (event) => {
 
   // 6. 現在のランキングを DynamoDB から読み込み
   const getResult = await ddb.send(
-    new GetCommand({ TableName: TABLE_NAME, Key: { pk: "leaderboard" } })
+    new GetCommand({ TableName: TABLE_NAME, Key: { pk: LEADERBOARD_PK } })
   );
 
-  const current = getResult.Item || { pk: "leaderboard", entries: [], version: 0 };
+  const current = getResult.Item || { pk: LEADERBOARD_PK, entries: [], version: 0 };
   // entries キーを優先し、旧形式 top20 からのフォールバックも対応
   const entries = current.entries || current.top20 || [];
 
@@ -712,7 +719,7 @@ export const handler = async (event) => {
       await ddb.send(
         new PutCommand({
           TableName: TABLE_NAME,
-          Item: { pk: "leaderboard", entries: merged, version: lbVersion + 1 },
+          Item: { pk: LEADERBOARD_PK, entries: merged, version: lbVersion + 1 },
           ConditionExpression: "attribute_not_exists(version) OR version = :v",
           ExpressionAttributeValues: { ":v": lbVersion },
         })
