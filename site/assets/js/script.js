@@ -843,25 +843,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const entry = quizData[it.i];
         if (!entry) return;
 
-        // 質問文の再生成（タイプ別）
-        let qText = '';
-        if (it.t === 1)      qText = t('q_cure_transform_who', { name: v(entry,'transformed') });
-        else if (it.t === 2) qText = t('q_cure_actor_who', { name: v(entry,'transformed') });
-        else if (it.t === 3) qText = t('q_transform_who', { name: v(entry,'civilian') });
-        else if (it.t === 4) qText = t('q_civilian_actor_who', { name: v(entry,'civilian') });
-        else if (it.t === 5) qText = t('q_actor_who', { name: v(entry,'voice') });
-        else if (it.t === 6) qText = t('q_actor_who', { name: v(entry,'voice') });
-        else if (it.t === 7) qText = t('q_civilian_father_who', { name: v(entry,'civilian') });
-        else if (it.t === 8) qText = t('q_civilian_mother_who', { name: v(entry,'civilian') });
-        else if (it.t === 9) qText = t('q_civilian_birthday_when', { name: v(entry,'civilian') });
-        else if (it.t === 10) qText = t('q_cure_birthday_when', { name: v(entry,'transformed') });
-
-        // 正答
-        const correctAnswer =
-            it.t === 7 ? v(entry,'father')
-          : it.t === 8 ? v(entry,'mother')
-          : (it.t === 9 || it.t === 10) ? v(entry,'birthday')
-          : v(entry, fieldCodeToKey(typeToFieldCode(it.t)));
+        // 質問文・正答はタイプ定義から再生成（出題時と同一ロジック）
+        const qText = buildQuestionText(it.t, entry);
+        const correctAnswer = v(entry, answerKeyByType(it.t));
 
         // ユーザー解答（正解なら選択データを持っていない → 正答と同じ）
         let userAnswer;
@@ -1117,122 +1101,87 @@ function refreshLanguageSensitiveUI() {
   - 正解に使ったキャラは重複させない
   - 誤答は可能なら同シリーズ70%優先
 --------------------------------------------*/
+/*--------------------------------------------
+  通常問題（type 1〜6）を1問組み立てて questions に追加
+  - series 優先確率を適用しつつ、該当 type の回答が作れるものだけ候補にする
+  - 誤答は可能なら同シリーズ70%優先
+  - 組み立てられなければ false（呼び出し側でリトライ）
+--------------------------------------------*/
+function buildStandardQuestion(type, used) {
+  const entry = pickEntryWithSeriesBias(used, (e) => !!pickAnswerByType(e, type));
+  if (!entry) return false;
+
+  const answer = pickAnswerByType(entry, type);
+  if (!answer) return false; // 未定義（空）なら問題にしない
+
+  const same  = quizData.filter(e => e.series === entry.series);
+  const other = quizData.filter(e => e.series !== entry.series);
+
+  const choices = [answer];
+  let guard = 0; // 候補が枯渇した場合の保険（従来は無限ループの可能性があった）
+  while (choices.length < 4 && guard++ < 400) {
+    const from = (Math.random() < 0.7 && same.length) ? same : other;
+    const cand = pickCandidate(from, type, entry);
+    if (!cand || choices.includes(cand)) continue;
+    choices.push(cand);
+  }
+  if (choices.length < 4) return false;
+
+  choices.sort(() => Math.random() - 0.5);
+
+  const aKey = answerKeyByType(type);
+  questions.push({
+    question: buildQuestionText(type, entry),
+    choices,
+    correct: answer,
+    type,
+    entryIndex: quizData.indexOf(entry),
+    choiceEntryIndices: choices.map(c => quizData.findIndex(e => v(e, aKey) === c))
+  });
+  used.add(entry);
+  return true;
+}
+
 function generateQuestions() {
   questions = [];
   const used = new Set(); // 正解に使ったエントリ
-  let vCount = 0, oCount = 0;
 
   // 無限ループ防止（データ欠損が多い場合の保険）
   let guard = 0;
 
   // 声優2問（type: 2/4/5/6 からランダム）
+  let vCount = 0;
   guard = 0;
   while (vCount < 2 && guard++ < 2000) {
     const type = [2, 4, 5, 6][Math.floor(Math.random() * 4)];
-
-    // series 優先確率を適用しつつ、該当 type の回答が作れるものだけ候補にする
-    const entry = pickEntryWithSeriesBias(used, (e) => !!pickAnswerByType(e, type));
-    if (!entry) break;
-
-    let q = '', a = '';
-    a = pickAnswerByType(entry, type);
-    if (!a) continue; // 未定義（空）なら問題にしない
-    q = buildQuestionText(type, entry);
-
-    const choices = [a];
-    while (choices.length < 4) {
-      const same  = quizData.filter(e => e.series === entry.series);
-      const other = quizData.filter(e => e.series !== entry.series);
-      const from  = (Math.random() < 0.7 && same.length) ? same : other;
-      const cand  = pickCandidate(from, type, entry);
-      if (!cand || choices.includes(cand)) continue;
-      choices.push(cand);
-    }
-    choices.sort(() => Math.random() - 0.5);
-
-    const qType = (typeof type !== 'undefined') ? type : typeCode;
-    const aKey = answerKeyByType(qType);
-    const choiceEntryIndices = choices.map(c => quizData.findIndex(e => v(e, aKey) === c));
-
-    questions.push({
-      question: q,
-      choices,
-      correct: a,
-      type,
-      entryIndex: quizData.indexOf(entry),
-      choiceEntryIndices
-    });
-    used.add(entry);
-    vCount++;
+    if (buildStandardQuestion(type, used)) vCount++;
   }
 
-
   // その他7問（type: 1/3）
+  let oCount = 0;
   guard = 0;
   while (oCount < 7 && guard++ < 4000) {
     const type = [1, 3][Math.floor(Math.random() * 2)];
-
-    const entry = pickEntryWithSeriesBias(used, (e) => !!pickAnswerByType(e, type));
-    if (!entry) break;
-
-    let q = '', a = '';
-    a = pickAnswerByType(entry, type);
-    if (!a) continue; // 未定義（空）なら問題にしない
-    q = buildQuestionText(type, entry);
-
-    const choices = [a];
-    while (choices.length < 4) {
-      const same  = quizData.filter(e => e.series === entry.series);
-      const other = quizData.filter(e => e.series !== entry.series);
-      const from  = (Math.random() < 0.7 && same.length) ? same : other;
-      const cand  = pickCandidate(from, type, entry);
-      if (!cand || choices.includes(cand)) continue;
-      choices.push(cand);
-    }
-    choices.sort(() => Math.random() - 0.5);
-
-    const qType = (typeof type !== 'undefined') ? type : typeCode;
-    const aKey = answerKeyByType(qType);
-    const choiceEntryIndices = choices.map(c => quizData.findIndex(e => v(e, aKey) === c));
-
-    questions.push({
-      question: q,
-      choices,
-      correct: a,
-      type,
-      entryIndex: quizData.indexOf(entry),
-      choiceEntryIndices
-    });
-    used.add(entry);
-    oCount++;
+    if (buildStandardQuestion(type, used)) oCount++;
   }
 
   // 追加1問（父30%／母30%／誕生日A20%／誕生日B20%）
   const patterns = [
-    { key: 'father',    p: 0.3 },
-    { key: 'mother',    p: 0.3 },
-    { key: 'birthdayA', p: 0.2 },
-    { key: 'birthdayB', p: 0.2 }
+    { typeCode: 7,  p: 0.3 },  // 父
+    { typeCode: 8,  p: 0.3 },  // 母
+    { typeCode: 9,  p: 0.2 },  // 誕生日（変身前で出題）
+    { typeCode: 10, p: 0.2 }   // 誕生日（プリキュアで出題）
   ];
-  let roll = Math.random(), acc = 0, sel = null;
-  for (const p of patterns) { acc += p.p; if (roll < acc) { sel = p.key; break; } }
+  let roll = Math.random(), acc = 0, typeCode = 10;
+  for (const p of patterns) { acc += p.p; if (roll < acc) { typeCode = p.typeCode; break; } }
 
-  const addEntry = pickEntryWithSeriesBias(used, (e) => {
-    if (sel === 'father') return !!v(e,'father');
-    if (sel === 'mother') return !!v(e,'mother');
-    if (sel === 'birthdayA' || sel === 'birthdayB') return !!v(e,'birthday');
-    return false;
-  });
+  const fieldKey = answerKeyByType(typeCode);
+  const addEntry = pickEntryWithSeriesBias(used, (e) => !!v(e, fieldKey));
 
   if (addEntry) {
-    let q = '', a = '', typeCode = 0;
-    if (sel === 'father')     { q = t('q_civilian_father_who', { name: v(addEntry,'civilian') });   a = v(addEntry,'father');   typeCode = 7;  }
-    else if (sel === 'mother'){ q = t('q_civilian_mother_who', { name: v(addEntry,'civilian') });   a = v(addEntry,'mother');   typeCode = 8;  }
-    else if (sel === 'birthdayA'){ q = t('q_civilian_birthday_when', { name: v(addEntry,'civilian') }); a = v(addEntry,'birthday'); typeCode = 9;  }
-    else                      { q = t('q_cure_birthday_when', { name: v(addEntry,'transformed') });     a = v(addEntry,'birthday'); typeCode = 10; }
+    const a = v(addEntry, fieldKey);
 
     // 誤答候補：可能な限り同シリーズから
-    const fieldKey = (sel === 'father') ? 'father' : (sel === 'mother') ? 'mother' : 'birthday';
     const same  = quizData.filter(e => e.series === addEntry.series && v(e, fieldKey));
     const other = quizData.filter(e => e.series !== addEntry.series && v(e, fieldKey));
 
@@ -1258,18 +1207,14 @@ function generateQuestions() {
 
     choices.sort(() => Math.random() - 0.5);
 
-    const qType = (typeof type !== 'undefined') ? type : typeCode;
-    const aKey = answerKeyByType(qType);
-    const choiceEntryIndices = choices.map(c => quizData.findIndex(e => v(e, aKey) === c));
-
     questions.push({
-      question: q,
+      question: buildQuestionText(typeCode, addEntry),
       choices,
       correct: a,
       type: typeCode,
       additional: true,
       entryIndex: quizData.indexOf(addEntry),
-      choiceEntryIndices
+      choiceEntryIndices: choices.map(c => quizData.findIndex(e => v(e, fieldKey) === c))
     });
   }
 }
