@@ -1305,7 +1305,10 @@ function showQuestion() {
   if (currentQuestion >= questions.length) { endQuiz(); return; }
 
   const q = questions[currentQuestion];
-  $('question-area').textContent = q.question;
+  const qArea = $('question-area');
+  qArea.textContent = q.question;
+  // 長文（名乗り口上など）は少し縮小してレイアウト崩れを防ぐ
+  qArea.classList.toggle('q-long', q.question.length > 24);
 
   const area = $('choices-area');
   area.innerHTML = '';
@@ -1313,10 +1316,17 @@ function showQuestion() {
   q.choices.forEach(choice => {
     const b = document.createElement('button');
     b.textContent = choice;
-    b.className = 'choice';
+    b.className = 'choice' + textSizeClass(choice);
     b.onclick = () => { b.blur(); answer(choice); };
     area.appendChild(b);
   });
+}
+
+// 文字数に応じた縮小クラス（長い名乗り口上対策）
+function textSizeClass(text) {
+  if (text.length > 22) return ' choice-xlong';
+  if (text.length > 14) return ' choice-long';
+  return '';
 }
 
 /*--------------------------------------------
