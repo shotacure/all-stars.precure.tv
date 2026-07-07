@@ -1351,32 +1351,13 @@ function answer(selectedChoice) {
 }
 
 /*--------------------------------------------
-  結果表示 & 共有URL生成 & ランキング判定
-  - 詳細結果（各問の○×・時間・正答）
-  - 共有URLを作ってツイート誘導
-  - 共有ビュー時はツイート非表示／「あそんでみる」に文言変更
-  - ランクインならば名前入力UIを表示
+  結果画面の部品（endQuiz から呼ばれる）
 --------------------------------------------*/
-function endQuiz() {
-  clearInterval(timerInterval);
 
-  // 結果画面に入った瞬間の秒数を確定
-  resultTimerSec = elapsedTime / 1000;
-
-  // 暫定順位はプレイ中限定の演出（フィニッシュ後はもう「暫定」ではない）
-  // タイマーは従来どおり最終タイムを表示したまま残す
-  const finalRankEl = document.getElementById('timer-rank');
-  if (finalRankEl) { finalRankEl.textContent = ''; finalRankEl.classList.remove('rank-gray'); }
-
-  document.getElementById('question-area').innerHTML = t('result_heading_html');
-  document.getElementById('choices-area').innerHTML  = '';
-
-  const resArea = document.getElementById('result-area');
-  resArea.innerHTML = '';
-
+// 各問の詳細（○×・時間・正答）を resArea に描画し、正解数を返す
+function renderResultDetails(resArea) {
   let correctCount = 0;
 
-  // 各問の詳細
   results.forEach((r, i) => {
     const d = document.createElement('div');
     d.className = 'result-detail';
@@ -1404,11 +1385,11 @@ function endQuiz() {
     resArea.appendChild(d);
   });
 
-  // 合計時間とメッセージ
-  const totalSec  = elapsedTime / 1000;
-  const totalText = totalSec.toFixed(2);
+  return correctCount;
+}
 
-  // ほめコメント
+// ほめコメント・はやさコメントを選ぶ
+function buildResultComments(correctCount, totalSec) {
   let praise = '';
   if (correctCount === 10)      praise = t('praise_perfect');
   else if (correctCount >= 7)   praise = t('praise_very_good');
@@ -1416,18 +1397,18 @@ function endQuiz() {
   else if (correctCount >= 1)   praise = t('praise_close');
   else                          praise = t('praise_finish');
 
-  // はやさコメント
   let speedComment = '';
   if (totalSec < 15)      speedComment = t('speed_very_fast');
   else if (totalSec < 30) speedComment = t('speed_fast');
   else if (totalSec < 60) speedComment = t('speed_ok');
   else                    speedComment = t('speed_think');
 
-  // 合計スコア表示
-  resArea.innerHTML += t('result_score_time_html', { correct: correctCount, sec: totalText });
-  resArea.innerHTML += t('result_praise_speed_html', { praise, speed: speedComment });
+  return { praise, speedComment };
+}
 
-  // ボタン設定
+// 共有URLを生成してアドレスバーを共有形式に更新し、ツイート/リトライボタンを設定
+function setupResultButtons(correctCount, totalSec, praise, speedComment) {
+  const totalText = totalSec.toFixed(2);
   const tweetBtn = document.getElementById('tweet-btn');
   const retryBtn = document.getElementById('retry-btn');
 
@@ -1467,11 +1448,12 @@ function endQuiz() {
       location.href = location.origin + location.pathname + (currentLang === 'en' ? '?en' : '');
     };
   }
+}
 
-  // ランキング判定（自分のプレイ時のみ、共有ビューでは行わない）
+// 自己ベスト保存とランクイン判定（いずれも共有ビューでは行わない）
+function finalizeRecords(resArea, correctCount, totalSec) {
   const totalTimeCs = Math.round(totalSec * 100);
 
-  // 自己ベスト判定・保存（共有ビューでは記録しない）
   if (!isSharedView && updatePersonalBest(correctCount, totalTimeCs)) {
     resArea.innerHTML += `<p class="pb-updated">${t('personal_best_updated')}</p>`;
   }
@@ -1479,6 +1461,49 @@ function endQuiz() {
   if (!isSharedView && API_BASE_URL && isQualified(correctCount, totalTimeCs)) {
     showNameInput(correctCount, totalTimeCs);
   }
+}
+
+/*--------------------------------------------
+  結果表示 & 共有URL生成 & ランキング判定
+  - 詳細結果（各問の○×・時間・正答）
+  - 共有URLを作ってツイート誘導
+  - 共有ビュー時はツイート非表示／「あそんでみる」に文言変更
+  - ランクインならば名前入力UIを表示
+  - 言語切替時は refreshLanguageSensitiveUI から再実行される（再入可能）
+--------------------------------------------*/
+function endQuiz() {
+  clearInterval(timerInterval);
+
+  // 結果画面に入った瞬間の秒数を確定
+  resultTimerSec = elapsedTime / 1000;
+
+  // 暫定順位はプレイ中限定の演出（フィニッシュ後はもう「暫定」ではない）
+  // タイマーは従来どおり最終タイムを表示したまま残す
+  const finalRankEl = document.getElementById('timer-rank');
+  if (finalRankEl) { finalRankEl.textContent = ''; finalRankEl.classList.remove('rank-gray'); }
+
+  document.getElementById('question-area').innerHTML = t('result_heading_html');
+  document.getElementById('choices-area').innerHTML  = '';
+
+  const resArea = document.getElementById('result-area');
+  resArea.innerHTML = '';
+
+  // 各問の詳細
+  const correctCount = renderResultDetails(resArea);
+
+  // 合計時間とメッセージ
+  const totalSec = elapsedTime / 1000;
+  const { praise, speedComment } = buildResultComments(correctCount, totalSec);
+
+  // 合計スコア表示
+  resArea.innerHTML += t('result_score_time_html', { correct: correctCount, sec: totalSec.toFixed(2) });
+  resArea.innerHTML += t('result_praise_speed_html', { praise, speed: speedComment });
+
+  // 共有URL・ツイート/リトライボタン
+  setupResultButtons(correctCount, totalSec, praise, speedComment);
+
+  // 自己ベスト・ランクイン判定
+  finalizeRecords(resArea, correctCount, totalSec);
 
   // ランキング表示
   renderLeaderboard();
