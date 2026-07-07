@@ -82,7 +82,7 @@ async function playQuiz(page, { wrongOnQuestion = -1 } = {}) {
     }
     return { issues: issues.slice(0, 5), coexistSeen };
   });
-  check('出題生成50回：構成2/5/口上2/1・選択肢重複なし・口上の正解重複なし',
+  check('出題生成50回：構成5/2/口上2/1・選択肢重複なし・口上の正解重複なし',
     genCheck.issues.length === 0, genCheck.issues.join(' | ') || `同一人物別形態の同居観測: ${genCheck.coexistSeen}回`);
 
   // --- シナリオ0.5: 長文（口上）選択肢の縮小クラスとはみ出し検査 ---
