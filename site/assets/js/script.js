@@ -211,22 +211,30 @@ async function loadLanguage(lang) {
 }
 
 /*--------------------------------------------
-  通常出題の Q/A マッピング
+  出題タイプ定義（type 1〜10 の意味はすべてここに集約）
+  - questionKey: 問題文に名前を出すフィールド
+  - answerKey  : 正答・選択肢に使うフィールド
+  - i18nKey    : 問題文の i18n キー
+  新しい問題タイプを足すときはこの表に1行追加すればよい。
+  共有URLのビット表現は FIELD_CODES[answerKey] で導出される
 --------------------------------------------*/
-const QANDA = {
-  1: { questionKey: 'transformed', answerKey: 'civilian' },
-  2: { questionKey: 'transformed', answerKey: 'voice' },
-  3: { questionKey: 'civilian',    answerKey: 'transformed' },
-  4: { questionKey: 'civilian',    answerKey: 'voice' },
-  5: { questionKey: 'voice',       answerKey: 'transformed' },
-  6: { questionKey: 'voice',       answerKey: 'civilian' },
+const TYPE_DEFS = {
+  1: { questionKey: 'transformed', answerKey: 'civilian',    i18nKey: 'q_cure_transform_who' },
+  2: { questionKey: 'transformed', answerKey: 'voice',       i18nKey: 'q_cure_actor_who' },
+  3: { questionKey: 'civilian',    answerKey: 'transformed', i18nKey: 'q_transform_who' },
+  4: { questionKey: 'civilian',    answerKey: 'voice',       i18nKey: 'q_civilian_actor_who' },
+  5: { questionKey: 'voice',       answerKey: 'transformed', i18nKey: 'q_actor_who' },
+  6: { questionKey: 'voice',       answerKey: 'civilian',    i18nKey: 'q_actor_who' },
 
   // 追加問題
-  7: { questionKey: 'civilian',    answerKey: 'father' },
-  8: { questionKey: 'civilian',    answerKey: 'mother' },
-  9: { questionKey: 'civilian',    answerKey: 'birthday' },
-  10:{ questionKey: 'transformed', answerKey: 'birthday' }
+  7: { questionKey: 'civilian',    answerKey: 'father',      i18nKey: 'q_civilian_father_who' },
+  8: { questionKey: 'civilian',    answerKey: 'mother',      i18nKey: 'q_civilian_mother_who' },
+  9: { questionKey: 'civilian',    answerKey: 'birthday',    i18nKey: 'q_civilian_birthday_when' },
+  10:{ questionKey: 'transformed', answerKey: 'birthday',    i18nKey: 'q_cure_birthday_when' }
 };
+
+// 共有URLのビット表現（後方互換のため既存の割当を変更しないこと）
+const FIELD_CODES = { civilian: 1, transformed: 2, voice: 3, father: 4, mother: 5, birthday: 6 };
 
 /*--------------------------------------------
   時間上限（超過時は即初期画面リセット）
@@ -279,26 +287,18 @@ function b64uDecode(str) {
 }
 
 /*--------------------------------------------
-  質問タイプ ⇄ データキーの対応
-  - 出題タイプごとにどのフィールドを答えに使うか
+  質問タイプ ⇄ 共有URLビット表現の対応
+  （実体は TYPE_DEFS / FIELD_CODES。ここは導出のみ）
 --------------------------------------------*/
 function typeToFieldCode(t) {
-  if (t === 1 || t === 6) return 1;           // 変身前
-  if (t === 2 || t === 4) return 3;           // 声優
-  if (t === 3 || t === 5) return 2;           // 変身後
-  if (t === 7) return 4;                      // 父親（追加）
-  if (t === 8) return 5;                      // 母親（追加）
-  if (t === 9 || t === 10) return 6;          // 誕生日（追加）
-  return 0;
+  const def = TYPE_DEFS[t];
+  return def ? FIELD_CODES[def.answerKey] : 0;
 }
 function fieldCodeToKey(c) {
-  return c === 1 ? 'civilian'
-       : c === 2 ? 'transformed'
-       : c === 3 ? 'voice'
-       : c === 4 ? 'father'
-       : c === 5 ? 'mother'
-       : c === 6 ? 'birthday'
-       : '';
+  for (const key in FIELD_CODES) {
+    if (FIELD_CODES[key] === c) return key;
+  }
+  return '';
 }
 
 /*--------------------------------------------
@@ -975,46 +975,27 @@ function pickCandidate(arr, type, correctItem) {
   const e = arr[Math.floor(Math.random() * arr.length)];
   if (!e) return null;
 
-  const qa = QANDA[type];
-  if (qa) {
-    const sameQ = (v(e, qa.questionKey) === v(correctItem, qa.questionKey));
-    const diffA = (v(e, qa.answerKey)   !== v(correctItem, qa.answerKey));
+  const def = TYPE_DEFS[type];
+  if (def) {
+    const sameQ = (v(e, def.questionKey) === v(correctItem, def.questionKey));
+    const diffA = (v(e, def.answerKey)   !== v(correctItem, def.answerKey));
     if (sameQ && diffA) return null; // 「同一人物の別形態」などは除外
   }
   return pickAnswerByType(e, type);
 }
 function pickAnswerByType(entry, type) {
-  switch (type) {
-    case 1: case 6: return v(entry,'civilian');
-    case 2: case 4: return v(entry,'voice');
-    case 3: case 5: return v(entry,'transformed');
-    default:        return null;
-  }
+  const def = TYPE_DEFS[type];
+  return def ? v(entry, def.answerKey) : null;
 }
 
 function buildQuestionText(type, entry) {
-  switch (type) {
-    case 1: return t('q_cure_transform_who', { name: v(entry,'transformed') });
-    case 2: return t('q_cure_actor_who', { name: v(entry,'transformed') });
-    case 3: return t('q_transform_who', { name: v(entry,'civilian') });
-    case 4: return t('q_civilian_actor_who', { name: v(entry,'civilian') });
-    case 5: return t('q_actor_who', { name: v(entry,'voice') });
-    case 6: return t('q_actor_who', { name: v(entry,'voice') });
-
-    // 追加問題
-    case 7: return t('q_civilian_father_who', { name: v(entry,'civilian') });
-    case 8: return t('q_civilian_mother_who', { name: v(entry,'civilian') });
-    case 9: return t('q_civilian_birthday_when', { name: v(entry,'civilian') });
-    case 10:return t('q_cure_birthday_when', { name: v(entry,'transformed') });
-    default: return '';
-  }
+  const def = TYPE_DEFS[type];
+  return def ? t(def.i18nKey, { name: v(entry, def.questionKey) }) : '';
 }
 
 function answerKeyByType(type) {
-  if (type === 7) return 'father';
-  if (type === 8) return 'mother';
-  if (type === 9 || type === 10) return 'birthday';
-  return fieldCodeToKey(typeToFieldCode(type));
+  const def = TYPE_DEFS[type];
+  return def ? def.answerKey : '';
 }
 
 function rebuildQuestionsForLang() {
