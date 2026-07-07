@@ -46,6 +46,13 @@ const API_BASE_URL = ALLSTARS_CFG.API_BASE_URL || '';
 })();
 
 /*--------------------------------------------
+  DOM ヘルパー
+--------------------------------------------*/
+function $(id) {
+  return document.getElementById(id);
+}
+
+/*--------------------------------------------
   i18n (ja/en)
   - UI文字列を data/i18n/{lang}.json から読み込み
 --------------------------------------------*/
@@ -68,8 +75,8 @@ function v(entry, key) {
 }
 
 
-function showLangSwitch(){document.getElementById('lang-switch')?.classList.remove('hidden');}
-function hideLangSwitch(){document.getElementById('lang-switch')?.classList.add('hidden');}
+function showLangSwitch(){$('lang-switch')?.classList.remove('hidden');}
+function hideLangSwitch(){$('lang-switch')?.classList.add('hidden');}
 function applyI18nToDom() {
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
@@ -88,15 +95,15 @@ function applyI18nToDom() {
 }
 
 function setLangButtonsActive(lang) {
-  const jaBtn = document.getElementById('lang-ja');
-  const enBtn = document.getElementById('lang-en');
+  const jaBtn = $('lang-ja');
+  const enBtn = $('lang-en');
   if (jaBtn) jaBtn.classList.toggle('active', lang === 'ja');
   if (enBtn) enBtn.classList.toggle('active', lang === 'en');
 }
 
 function initLangSwitch() {
-  const jaBtn = document.getElementById('lang-ja');
-  const enBtn = document.getElementById('lang-en');
+  const jaBtn = $('lang-ja');
+  const enBtn = $('lang-en');
 
   const setUrlLang = (lang) => {
     const url = new URL(location.href);
@@ -169,7 +176,7 @@ function buildCopyrightYears(publishedYear, currentYear) {
 }
 
 function updateCopyrightYears() {
-  const el = document.getElementById('copyright-years');
+  const el = $('copyright-years');
   if (!el) return;
   el.textContent = buildCopyrightYears(COPYRIGHT_PUBLISHED_YEAR, new Date().getFullYear());
 }
@@ -180,7 +187,7 @@ function formatSeconds(sec) {
 }
 
 function updatePrecureCountLabel() {
-  const countElem = document.getElementById('precure-count');
+  const countElem = $('precure-count');
   if (!countElem) return;
 
   if (latestPrecureCount == null) {
@@ -521,8 +528,8 @@ function isQualified(correct, totalTimeCs) {
     21位以降: さらに小さいフォントで改行なしのインライン形式
 --------------------------------------------*/
 function renderLeaderboard() {
-  const area = document.getElementById('leaderboard-area');
-  const list = document.getElementById('leaderboard-list');
+  const area = $('leaderboard-area');
+  const list = $('leaderboard-list');
   if (!area || !list) return;
 
   // ランキングデータがなければ非表示
@@ -617,7 +624,7 @@ function buildGhostTimeline() {
 }
 
 function spawnGhost(item) {
-  const area = document.getElementById('timer-ghosts');
+  const area = $('timer-ghosts');
   if (!area) return;
   const el = document.createElement('div');
   el.className = 'timer-ghost' + (item.isLb ? '' : ' timer-ghost-pb');
@@ -649,7 +656,7 @@ function countFasterThan(timeCs) {
 }
 
 function renderProvisionalRank() {
-  const el = document.getElementById('timer-rank');
+  const el = $('timer-rank');
   if (!el) return;
   // このペースでフィニッシュした場合の予測タイム（センチ秒）
   // = 経過ms ÷ 回答済み問数 × 10問 ÷ 10(ms→cs) = 経過ms ÷ 回答済み問数
@@ -670,9 +677,9 @@ function resetPlayEffects() {
   ghostTimeline = [];
   ghostIdx = 0;
   lastRankKey = '';
-  const ghosts = document.getElementById('timer-ghosts');
+  const ghosts = $('timer-ghosts');
   if (ghosts) ghosts.innerHTML = '';
-  const rankEl = document.getElementById('timer-rank');
+  const rankEl = $('timer-rank');
   if (rankEl) { rankEl.textContent = ''; rankEl.classList.remove('rank-gray'); }
 }
 
@@ -699,11 +706,11 @@ function updatePersonalBest(correct, totalCs) {
 }
 
 function updatePersonalBestLabel() {
-  const el = document.getElementById('personal-best');
+  const el = $('personal-best');
   if (!el) return;
   const pb = loadPersonalBest();
   // ホーム画面（スタートボタンが見えている状態）でのみ表示
-  const isHome = !document.getElementById('start-btn')?.classList.contains('hidden');
+  const isHome = !$('start-btn')?.classList.contains('hidden');
   if (!pb || !isHome || isSharedView) { el.classList.add('hidden'); return; }
   el.textContent = t('personal_best_label', { correct: pb.correct, sec: (pb.totalCs / 100).toFixed(2) });
   el.classList.remove('hidden');
@@ -792,7 +799,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ランキングを非同期で読み込み（表示はloadLanguage内のrenderLeaderboardで行う）
   loadLeaderboard().then(() => renderLeaderboard());
 
-  const countElem = document.getElementById('precure-count');
+  const countElem = $('precure-count');
 
   // 1) 人数の即表示（window.PRECURE_COUNT優先、なければローカルキャッシュ）
   if (typeof window.PRECURE_COUNT === 'number') {
@@ -825,9 +832,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!rParam) return;
 
   isSharedView = true;
-  document.getElementById('start-btn')?.classList.add('hidden');
-  document.getElementById('precure-count')?.classList.add('hidden');
-  document.getElementById('timer-row')?.classList.add('hidden');
+  $('start-btn')?.classList.add('hidden');
+  $('precure-count')?.classList.add('hidden');
+  $('timer-row')?.classList.add('hidden');
 
   fetch('data/precure.json')
     .then(res => res.json())
@@ -888,13 +895,13 @@ document.addEventListener('DOMContentLoaded', () => {
   スタートボタン：初期UIを隠し、データ読込→開始
   - セッショントークンも並行して取得
 --------------------------------------------*/
-document.getElementById('start-btn').onclick = () => {
-  document.getElementById('start-btn').classList.add('hidden');
-  document.getElementById('precure-count')?.classList.add('hidden');
-  document.getElementById('personal-best')?.classList.add('hidden');
-  document.getElementById('leaderboard-area')?.classList.add('hidden');
+$('start-btn').onclick = () => {
+  $('start-btn').classList.add('hidden');
+  $('precure-count')?.classList.add('hidden');
+  $('personal-best')?.classList.add('hidden');
+  $('leaderboard-area')?.classList.add('hidden');
   hideLangSwitch();
-  document.getElementById('timer-row').classList.remove('hidden');
+  $('timer-row').classList.remove('hidden');
 
   // データ読込とセッショントークン取得を並行実行
   Promise.all([
@@ -1050,7 +1057,7 @@ function rebuildResultsForLang() {
 
 function refreshLanguageSensitiveUI() {
   // タイマー
-  const timer = document.getElementById('timer');
+  const timer = $('timer');
   if (timer) {
     // 結果画面：確定値で固定（絶対に再計算しない）
     if (resultTimerSec != null) {
@@ -1062,9 +1069,9 @@ function refreshLanguageSensitiveUI() {
   }
 
   // 出題中なら問題文と選択肢を差し替え
-  const startBtn = document.getElementById('start-btn');
+  const startBtn = $('start-btn');
   const inQuiz = startBtn && startBtn.classList.contains('hidden') && Array.isArray(questions) && questions.length && currentQuestion < questions.length;
-  const hasResult = document.getElementById('result-area') && document.getElementById('result-area').innerHTML.trim() !== '';
+  const hasResult = $('result-area') && $('result-area').innerHTML.trim() !== '';
 
   if (hasResult) {
     // 結果画面の文言差し替え（再描画）
@@ -1225,7 +1232,7 @@ function startQuiz() {
 function updateTimer() {
   elapsedTime = Date.now() - startTime;
   const s = elapsedTime / 1000;
-  document.getElementById('timer').textContent = formatSeconds(s);
+  $('timer').textContent = formatSeconds(s);
 
   // プレイ中演出：経過に応じて記録ゴーストを流し、暫定順位を更新
   advanceGhosts(elapsedTime / 10);
@@ -1250,20 +1257,20 @@ function resetToHome() {
   resultTimerSec = null; // 結果確定時間リセット
   sessionToken = null;
 
-  document.getElementById('result-area').innerHTML = '';
-  document.getElementById('timer').textContent = formatSeconds(0);
-  document.getElementById('timer-row').classList.add('hidden');
+  $('result-area').innerHTML = '';
+  $('timer').textContent = formatSeconds(0);
+  $('timer-row').classList.add('hidden');
   resetPlayEffects();
-  document.getElementById('start-btn').classList.remove('hidden');
-  document.getElementById('precure-count')?.classList.remove('hidden');
-  document.getElementById('lang-switch')?.classList.remove('hidden');
-  document.getElementById('retry-btn').classList.add('hidden');
-  document.getElementById('tweet-btn').classList.add('hidden');
-  document.getElementById('question-area').innerHTML = '';
-  document.getElementById('choices-area').innerHTML = '';
-  document.getElementById('name-input-area')?.classList.add('hidden');
-  document.getElementById('name-error')?.classList.add('hidden');
-  document.getElementById('name-pending-message')?.classList.add('hidden');
+  $('start-btn').classList.remove('hidden');
+  $('precure-count')?.classList.remove('hidden');
+  $('lang-switch')?.classList.remove('hidden');
+  $('retry-btn').classList.add('hidden');
+  $('tweet-btn').classList.add('hidden');
+  $('question-area').innerHTML = '';
+  $('choices-area').innerHTML = '';
+  $('name-input-area')?.classList.add('hidden');
+  $('name-error')?.classList.add('hidden');
+  $('name-pending-message')?.classList.add('hidden');
 
   // 共有パラメータを消す
   history.replaceState(null, '', location.pathname);
@@ -1280,9 +1287,9 @@ function showQuestion() {
   if (currentQuestion >= questions.length) { endQuiz(); return; }
 
   const q = questions[currentQuestion];
-  document.getElementById('question-area').textContent = q.question;
+  $('question-area').textContent = q.question;
 
-  const area = document.getElementById('choices-area');
+  const area = $('choices-area');
   area.innerHTML = '';
 
   q.choices.forEach(choice => {
@@ -1409,8 +1416,8 @@ function buildResultComments(correctCount, totalSec) {
 // 共有URLを生成してアドレスバーを共有形式に更新し、ツイート/リトライボタンを設定
 function setupResultButtons(correctCount, totalSec, praise, speedComment) {
   const totalText = totalSec.toFixed(2);
-  const tweetBtn = document.getElementById('tweet-btn');
-  const retryBtn = document.getElementById('retry-btn');
+  const tweetBtn = $('tweet-btn');
+  const retryBtn = $('retry-btn');
 
   // 共有URL生成（合計は16bit上限で丸め、エンコード）
   const totalCs16 = Math.min(65535, Math.max(0, Math.round(totalSec * 100)));
@@ -1479,13 +1486,13 @@ function endQuiz() {
 
   // 暫定順位はプレイ中限定の演出（フィニッシュ後はもう「暫定」ではない）
   // タイマーは従来どおり最終タイムを表示したまま残す
-  const finalRankEl = document.getElementById('timer-rank');
+  const finalRankEl = $('timer-rank');
   if (finalRankEl) { finalRankEl.textContent = ''; finalRankEl.classList.remove('rank-gray'); }
 
-  document.getElementById('question-area').innerHTML = t('result_heading_html');
-  document.getElementById('choices-area').innerHTML  = '';
+  $('question-area').innerHTML = t('result_heading_html');
+  $('choices-area').innerHTML  = '';
 
-  const resArea = document.getElementById('result-area');
+  const resArea = $('result-area');
   resArea.innerHTML = '';
 
   // 各問の詳細
@@ -1519,10 +1526,10 @@ function endQuiz() {
   - 送信成功で承認待ちメッセージまたは記録更新メッセージを表示
 --------------------------------------------*/
 function showNameInput(correctCount, totalTimeCs) {
-  const area = document.getElementById('name-input-area');
-  const oldInput = document.getElementById('name-input');
-  const oldSubmitBtn = document.getElementById('name-submit-btn');
-  const errorEl = document.getElementById('name-error');
+  const area = $('name-input-area');
+  const oldInput = $('name-input');
+  const oldSubmitBtn = $('name-submit-btn');
+  const errorEl = $('name-error');
 
   if (!area || !oldInput || !oldSubmitBtn) return;
 
@@ -1584,9 +1591,9 @@ function showNameInput(correctCount, totalTimeCs) {
           // 承認待ちに既にベストスコアがある → 更新なし
           input.classList.add('hidden');
           submitBtn.classList.add('hidden');
-          const msgEl = document.getElementById('name-input-message');
+          const msgEl = $('name-input-message');
           if (msgEl) msgEl.classList.add('hidden');
-          const notUpdatedEl = document.getElementById('name-pending-message');
+          const notUpdatedEl = $('name-pending-message');
           if (notUpdatedEl) {
             notUpdatedEl.textContent = t('leaderboard_not_updated_message');
             notUpdatedEl.classList.remove('hidden');
@@ -1595,9 +1602,9 @@ function showNameInput(correctCount, totalTimeCs) {
           // 承認待ち：入力フォームを隠して承認待ちメッセージを表示
           input.classList.add('hidden');
           submitBtn.classList.add('hidden');
-          const msgEl = document.getElementById('name-input-message');
+          const msgEl = $('name-input-message');
           if (msgEl) msgEl.classList.add('hidden');
-          const pendingEl = document.getElementById('name-pending-message');
+          const pendingEl = $('name-pending-message');
           if (pendingEl) {
             pendingEl.textContent = t('leaderboard_pending_message');
             pendingEl.classList.remove('hidden');
@@ -1608,9 +1615,9 @@ function showNameInput(correctCount, totalTimeCs) {
           if (entries.length) { leaderboard = entries; renderLeaderboard(); }
           input.classList.add('hidden');
           submitBtn.classList.add('hidden');
-          const msgEl = document.getElementById('name-input-message');
+          const msgEl = $('name-input-message');
           if (msgEl) msgEl.classList.add('hidden');
-          const notUpdatedEl = document.getElementById('name-pending-message');
+          const notUpdatedEl = $('name-pending-message');
           if (notUpdatedEl) {
             notUpdatedEl.textContent = t('leaderboard_not_updated_message');
             notUpdatedEl.classList.remove('hidden');
@@ -1621,9 +1628,9 @@ function showNameInput(correctCount, totalTimeCs) {
           renderLeaderboard();
           input.classList.add('hidden');
           submitBtn.classList.add('hidden');
-          const msgEl = document.getElementById('name-input-message');
+          const msgEl = $('name-input-message');
           if (msgEl) msgEl.classList.add('hidden');
-          const autoEl = document.getElementById('name-pending-message');
+          const autoEl = $('name-pending-message');
           if (autoEl) {
             autoEl.textContent = t('leaderboard_record_updated_message');
             autoEl.classList.remove('hidden');
