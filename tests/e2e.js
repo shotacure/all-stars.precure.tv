@@ -248,6 +248,34 @@ async function playQuiz(page, { wrongOnQuestion = -1 } = {}) {
   const rankEn = await page.$eval('#timer-rank', el => el.textContent);
   check('英語のペース順位表示', /Pace #\d+/.test(rankEn), rankEn);
 
+  // --- シナリオ5.5: アーカイブ（過去ランキング）ページと導線 ---
+  await page.goto(BASE);
+  await page.waitForFunction(() => !document.getElementById('leaderboard-area').classList.contains('hidden'));
+  const archHref = await page.$eval('#archive-link a', a => a.getAttribute('href'));
+  check('ランキング下にアーカイブリンク', archHref === 'archive/v1.html', archHref);
+
+  // 空盤面（v2仕切り直し直後想定）でも枠と空メッセージが出る
+  const emptyState = await page.evaluate(() => {
+    const backup = leaderboard;
+    leaderboard = [];
+    renderLeaderboard();
+    const visible = !document.getElementById('leaderboard-area').classList.contains('hidden');
+    const msg = !!document.querySelector('#leaderboard-list .lb-empty');
+    leaderboard = backup;
+    renderLeaderboard();
+    return { visible, msg };
+  });
+  check('空ランキングでも枠・空メッセージ・導線を表示', emptyState.visible && emptyState.msg, JSON.stringify(emptyState));
+
+  await page.goto(BASE + 'archive/v1.html');
+  await page.waitForFunction(() => document.querySelectorAll('#archive-list tbody tr').length > 0);
+  const arch = await page.evaluate(() => ({
+    rows: document.querySelectorAll('#archive-list tbody tr').length,
+    medal: document.querySelector('#archive-list tbody tr td').textContent.includes('🥇'),
+    back: document.querySelector('#archive-back a').getAttribute('href'),
+  }));
+  check('アーカイブページ：ティア描画と戻り導線', arch.rows === 5 && arch.medal && arch.back === '../', JSON.stringify(arch));
+
   // --- シナリオ6: iモード（?i）で演出・自己ベスト非表示 ---
   await page.goto(BASE + '?i');
   await page.waitForTimeout(800);

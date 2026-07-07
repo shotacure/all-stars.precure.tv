@@ -541,9 +541,10 @@ function renderLeaderboard() {
   const list = $('leaderboard-list');
   if (!area || !list) return;
 
-  // ランキングデータがなければ非表示
+  // ランキングが空でも枠は表示する（v2仕切り直し直後・アーカイブへの導線維持）
   if (!leaderboard.length) {
-    area.classList.add('hidden');
+    area.classList.remove('hidden');
+    list.innerHTML = `<p class="lb-empty">${t('leaderboard_empty')}</p>`;
     return;
   }
 
@@ -698,9 +699,13 @@ function resetPlayEffects() {
   - ホーム画面にのみ表示（プレイ中・結果・共有ビューでは非表示）
   - 満点の自己ベストはプレイ中ゴーストとしても流す
 --------------------------------------------*/
+// v1.3.0 で問題構成が変わりタイムの比較可能性が失われたため、キーを v2 に更新。
+// 旧キー 'personal_best' の値は使わず放置する（構成が変わったら再度キーを上げる）
+const PERSONAL_BEST_KEY = 'personal_best_v2';
+
 function loadPersonalBest() {
   try {
-    const pb = JSON.parse(localStorage.getItem('personal_best'));
+    const pb = JSON.parse(localStorage.getItem(PERSONAL_BEST_KEY));
     if (pb && Number.isInteger(pb.correct) && Number.isInteger(pb.totalCs)) return pb;
   } catch (_) { /* 破損・私的ブラウジング等は無視 */ }
   return null;
@@ -710,7 +715,7 @@ function updatePersonalBest(correct, totalCs) {
   const pb = loadPersonalBest();
   const better = !pb || correct > pb.correct || (correct === pb.correct && totalCs < pb.totalCs);
   if (!better) return false;
-  try { localStorage.setItem('personal_best', JSON.stringify({ correct, totalCs })); } catch (_) {}
+  try { localStorage.setItem(PERSONAL_BEST_KEY, JSON.stringify({ correct, totalCs })); } catch (_) {}
   return true;
 }
 

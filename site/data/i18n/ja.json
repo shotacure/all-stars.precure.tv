@@ -58,6 +58,8 @@
   "personal_best_label": "じこベスト：{{correct}}/10（{{sec}}秒）",
   "personal_best_updated": "🎉じこベストこうしん！",
   "leaderboard_title": "🏆パーフェクトランキング🏆",
+  "leaderboard_empty": "まだきろくがないよ。いちばんのりをめざそう！",
+  "archive_link_v1": "過去のランキング（〜2026/7/18）",
   "leaderboard_rank": "じゅんい",
   "leaderboard_name": "なまえ",
   "leaderboard_time": "タイム",

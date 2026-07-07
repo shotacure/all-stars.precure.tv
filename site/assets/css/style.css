@@ -99,6 +99,31 @@ button:disabled {
   font-size: 0.92em;
 }
 
+/* ランキングが空のときのメッセージ */
+.lb-empty {
+  font-size: 0.95em;
+  color: #cc3366;
+}
+
+/* 過去ランキング（アーカイブ）への導線 */
+#archive-link {
+  font-size: 0.85em;
+  margin-top: 10px;
+}
+
+#archive-link a,
+#archive-back a {
+  color: #cc3366;
+}
+
+/* アーカイブページの説明文 */
+.archive-note {
+  font-size: 0.9em;
+  color: #cc3366;
+  margin: 10px 0 20px;
+  line-height: 1.6;
+}
+
 /* タイマー行：タイマーは常に中央。
    記録ゴースト（左）と暫定順位（右）は絶対配置のオーバーレイで、
    出現してもレイアウトを一切押し広げない */
