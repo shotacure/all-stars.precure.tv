@@ -33,6 +33,13 @@
 │       ├── index.mjs             # ランキング承認・却下（メールリンク経由）
 │       └── package.json
 │
+├── tests/                        # E2E テスト（Playwright + Edge）
+│   ├── e2e.js                    # テスト本体（挙動検証 22 チェック）
+│   ├── server.js                 # テスト用静的サーバー（site/ + fixtures/ を配信）
+│   ├── fixtures/
+│   │   └── leaderboard.json      # テスト用ランキングデータ
+│   └── package.json
+│
 ├── template.yaml                 # SAM テンプレート（インフラ定義）
 ├── samconfig.toml.example        # SAM 設定サンプル
 ├── deploy.sh.example             # デプロイスクリプトサンプル（bash）
@@ -652,6 +659,21 @@ sam local start-api
 
 `http://localhost:3000/api/session` などでローカルテストが可能です。  
 ただし DynamoDB のローカルエミュレーションには [DynamoDB Local](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html) が別途必要です。
+
+### E2E テスト
+
+フロントエンドの主要な挙動（暫定順位・記録ゴースト・自己ベスト・共有URL復元・
+言語切替・iモード等）を実ブラウザで検証します。
+
+```powershell
+cd tests
+npm install   # 初回のみ（ブラウザは Windows 同梱の Edge を使用）
+npm test
+```
+
+サーバー（:8765）は自動起動し、ランキングは `tests/fixtures/leaderboard.json` が
+`site/leaderboard.json` の代わりに配信されます（本番の leaderboard.json は S3 にのみ存在）。
+機能を変更したら、対応するチェックの追加もセットで行ってください。
 
 ## コスト目安
 
