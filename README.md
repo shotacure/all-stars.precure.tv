@@ -10,6 +10,7 @@
 │   ├── index.html
 │   ├── error.html
 │   ├── config.js.example         # フロントエンド設定サンプル
+│   ├── archive/                  # 過去ランキングの固定ページ（凍結JSON＋表示）
 │   ├── assets/
 │   │   ├── css/style.css
 │   │   ├── js/
@@ -34,11 +35,13 @@
 │       └── package.json
 │
 ├── tests/                        # E2E テスト（Playwright + Edge）
-│   ├── e2e.js                    # テスト本体（挙動検証 22 チェック）
+│   ├── e2e.js                    # テスト本体（実ブラウザでの挙動検証）
 │   ├── server.js                 # テスト用静的サーバー（site/ + fixtures/ を配信）
-│   ├── fixtures/
-│   │   └── leaderboard.json      # テスト用ランキングデータ
+│   ├── fixtures/                 # テスト用ランキングデータ等
 │   └── package.json
+│
+├── tools/
+│   └── cutover-v2.ps1            # 記録 v1→v2 切替（凍結アーカイブ化＋盤面初期化）
 │
 ├── template.yaml                 # SAM テンプレート（インフラ定義）
 ├── samconfig.toml.example        # SAM 設定サンプル
@@ -630,6 +633,18 @@ echo '{"updatedAt":"","entries":[]}' | aws s3 cp - s3://YOUR_SITE_BUCKET/leaderb
 ```bash
 ./deploy.sh
 ```
+
+### 記録バージョンの切替（ランキングの仕切り直し）
+
+問題構成の変更などでランキングを新規盤面で再スタートする場合：
+
+1. `template.yaml` の `RecordsVersion` を上げてバックエンドをデプロイ
+   （Lambda が `leaderboard#v2` 形式の新レコードに切り替わる。旧データは残る）
+2. `.\tools\cutover-v2.ps1` を実行
+   （現行 leaderboard.json を `site/archive/` に凍結し、S3 の盤面を空で初期化）
+3. 凍結ファイルをコミットしてサイトをデプロイ
+
+詳細な手順と注意点はスクリプト冒頭のコメントを参照。
 
 ## ローカル開発
 

@@ -2,7 +2,7 @@
  * all-stars.precure.tv — main script
  *
  * 概要
- *  - 出題：声優 2問 + その他 7問 + 追加（父/母/誕）1問 = 計10問
+ *  - 出題：変身前後 5問 + 声優 2問 + 名乗り口上 2問 + 追加（父/母/誕）1問 = 計10問
  *  - タイマー：合計655.35秒・各問163.83秒を超過したら
  *               結果を出さず即初期画面に戻す
  *  - 共有URL：バイナリ短縮
@@ -237,11 +237,20 @@ const TYPE_DEFS = {
   7: { questionKey: 'civilian',    answerKey: 'father',      i18nKey: 'q_civilian_father_who' },
   8: { questionKey: 'civilian',    answerKey: 'mother',      i18nKey: 'q_civilian_mother_who' },
   9: { questionKey: 'civilian',    answerKey: 'birthday',    i18nKey: 'q_civilian_birthday_when' },
-  10:{ questionKey: 'transformed', answerKey: 'birthday',    i18nKey: 'q_cure_birthday_when' }
+  10:{ questionKey: 'transformed', answerKey: 'birthday',    i18nKey: 'q_cure_birthday_when' },
+
+  // 名乗り口上（v1.3.0）
+  // - 同一口上のペア（ブラック/ホワイト、マシェリ/アムール）は
+  //   pickCandidate の sameQ && diffA 除外により正解重複が起きない
+  // - ブルーム/ブライト等の同一人物別形態は口上が異なるため同居可能
+  11:{ questionKey: 'rollcall',    answerKey: 'transformed', i18nKey: 'q_rollcall_who' },
+  12:{ questionKey: 'transformed', answerKey: 'rollcall',    i18nKey: 'q_rollcall_what' }
 };
 
 // 共有URLのビット表現（後方互換のため既存の割当を変更しないこと）
-const FIELD_CODES = { civilian: 1, transformed: 2, voice: 3, father: 4, mother: 5, birthday: 6 };
+// rollcall=7 は 3bit フィールドの最後の空き。これ以上のフィールド追加は
+// 共有フォーマットのバージョンアップが必要になる
+const FIELD_CODES = { civilian: 1, transformed: 2, voice: 3, father: 4, mother: 5, birthday: 6, rollcall: 7 };
 
 /*--------------------------------------------
   時間上限（超過時は即初期画面リセット）
@@ -532,9 +541,10 @@ function renderLeaderboard() {
   const list = $('leaderboard-list');
   if (!area || !list) return;
 
-  // ランキングデータがなければ非表示
+  // ランキングが空でも枠は表示する（v2仕切り直し直後・アーカイブへの導線維持）
   if (!leaderboard.length) {
-    area.classList.add('hidden');
+    area.classList.remove('hidden');
+    list.innerHTML = `<p class="lb-empty">${t('leaderboard_empty')}</p>`;
     return;
   }
 
@@ -689,9 +699,13 @@ function resetPlayEffects() {
   - ホーム画面にのみ表示（プレイ中・結果・共有ビューでは非表示）
   - 満点の自己ベストはプレイ中ゴーストとしても流す
 --------------------------------------------*/
+// v1.3.0 で問題構成が変わりタイムの比較可能性が失われたため、キーを v2 に更新。
+// 旧キー 'personal_best' の値は使わず放置する（構成が変わったら再度キーを上げる）
+const PERSONAL_BEST_KEY = 'personal_best_v2';
+
 function loadPersonalBest() {
   try {
-    const pb = JSON.parse(localStorage.getItem('personal_best'));
+    const pb = JSON.parse(localStorage.getItem(PERSONAL_BEST_KEY));
     if (pb && Number.isInteger(pb.correct) && Number.isInteger(pb.totalCs)) return pb;
   } catch (_) { /* 破損・私的ブラウジング等は無視 */ }
   return null;
@@ -701,7 +715,7 @@ function updatePersonalBest(correct, totalCs) {
   const pb = loadPersonalBest();
   const better = !pb || correct > pb.correct || (correct === pb.correct && totalCs < pb.totalCs);
   if (!better) return false;
-  try { localStorage.setItem('personal_best', JSON.stringify({ correct, totalCs })); } catch (_) {}
+  try { localStorage.setItem(PERSONAL_BEST_KEY, JSON.stringify({ correct, totalCs })); } catch (_) {}
   return true;
 }
 
@@ -1085,7 +1099,7 @@ function refreshLanguageSensitiveUI() {
 }
 
 /*--------------------------------------------
-  問題生成（声優2・その他7・追加1）
+  問題生成（変身前後5・声優2・口上2・追加1 ＝ 計10問）
   - 正解に使ったキャラは重複させない
   - 誤答は可能なら同シリーズ70%優先
 --------------------------------------------*/
@@ -1145,12 +1159,20 @@ function generateQuestions() {
     if (buildStandardQuestion(type, used)) vCount++;
   }
 
-  // その他7問（type: 1/3）
+  // 変身前後5問（type: 1/3）
   let oCount = 0;
   guard = 0;
-  while (oCount < 7 && guard++ < 4000) {
+  while (oCount < 5 && guard++ < 4000) {
     const type = [1, 3][Math.floor(Math.random() * 2)];
     if (buildStandardQuestion(type, used)) oCount++;
+  }
+
+  // 名乗り口上2問（各方向1問ずつ：11=口上→キュア、12=キュア→口上）
+  for (const type of [11, 12]) {
+    guard = 0;
+    while (guard++ < 2000) {
+      if (buildStandardQuestion(type, used)) break;
+    }
   }
 
   // 追加1問（父30%／母30%／誕生日A20%／誕生日B20%）
@@ -1287,7 +1309,10 @@ function showQuestion() {
   if (currentQuestion >= questions.length) { endQuiz(); return; }
 
   const q = questions[currentQuestion];
-  $('question-area').textContent = q.question;
+  const qArea = $('question-area');
+  qArea.textContent = q.question;
+  // 長文（名乗り口上など）は少し縮小してレイアウト崩れを防ぐ
+  qArea.classList.toggle('q-long', q.question.length > 24);
 
   const area = $('choices-area');
   area.innerHTML = '';
@@ -1295,10 +1320,17 @@ function showQuestion() {
   q.choices.forEach(choice => {
     const b = document.createElement('button');
     b.textContent = choice;
-    b.className = 'choice';
+    b.className = 'choice' + textSizeClass(choice);
     b.onclick = () => { b.blur(); answer(choice); };
     area.appendChild(b);
   });
+}
+
+// 文字数に応じた縮小クラス（長い名乗り口上対策）
+function textSizeClass(text) {
+  if (text.length > 22) return ' choice-xlong';
+  if (text.length > 14) return ' choice-long';
+  return '';
 }
 
 /*--------------------------------------------

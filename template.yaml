@@ -15,8 +15,17 @@ Globals:
         SITE_BUCKET: !Ref SiteBucketName
         SESSION_SECRET: !Ref SessionSecret
         CORS_ORIGIN: !Ref CorsOrigin
+        RECORDS_VERSION: !Ref RecordsVersion
 
 Parameters:
+  RecordsVersion:
+    Type: String
+    Description: >-
+      Leaderboard records version. "1" maps to the legacy unversioned keys
+      (leaderboard / pendings); other values use suffixed keys like
+      "leaderboard#v2". Bump this when the quiz composition changes to start
+      a fresh board while keeping old records intact.
+    Default: "2"
   SiteBucketName:
     Type: String
     Description: S3 bucket name for the site (used to write leaderboard.json)

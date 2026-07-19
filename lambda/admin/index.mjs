@@ -14,6 +14,11 @@ const TABLE_NAME = process.env.TABLE_NAME;
 const SITE_BUCKET = process.env.SITE_BUCKET;
 const TOP_N = 100;
 
+// 記録バージョン（score 側と同一の値を設定すること。詳細は score/index.mjs 参照）
+const RECORDS_VERSION = process.env.RECORDS_VERSION || "1";
+const LEADERBOARD_PK = RECORDS_VERSION === "1" ? "leaderboard" : `leaderboard#v${RECORDS_VERSION}`;
+const PENDINGS_PK = RECORDS_VERSION === "1" ? "pendings" : `pendings#v${RECORDS_VERSION}`;
+
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const s3 = new S3Client({});
 
@@ -149,7 +154,7 @@ async function removePendingEntry(pendingsItem, name) {
     await ddb.send(
       new PutCommand({
         TableName: TABLE_NAME,
-        Item: { pk: "pendings", entries: updated, version: version + 1 },
+        Item: { pk: PENDINGS_PK, entries: updated, version: version + 1 },
         ConditionExpression: "attribute_not_exists(version) OR version = :v",
         ExpressionAttributeValues: { ":v": version },
       })
@@ -202,11 +207,11 @@ export const handler = async (event) => {
       "#dc3545");
   }
 
-  // 承認待ちエントリを集約レコード（pk: "pendings"）から取得
+  // 承認待ちエントリを集約レコード（pk: PENDINGS_PK）から取得
   const pendingsResult = await ddb.send(
-    new GetCommand({ TableName: TABLE_NAME, Key: { pk: "pendings" } })
+    new GetCommand({ TableName: TABLE_NAME, Key: { pk: PENDINGS_PK } })
   );
-  const pendingsItem = pendingsResult.Item || { pk: "pendings", entries: {}, version: 0 };
+  const pendingsItem = pendingsResult.Item || { pk: PENDINGS_PK, entries: {}, version: 0 };
   const targetEntry = (pendingsItem.entries || {})[lookupKey] || null;
   const hasPending = targetEntry && targetEntry.name && targetEntry.totalTimeCs;
 
@@ -222,9 +227,9 @@ export const handler = async (event) => {
     // 2. ランキングからも同一名義を削除（承認済みのエントリが存在する場合）
     const targetName = hasPending ? targetEntry.name : lookupKey;
     const lbResult = await ddb.send(
-      new GetCommand({ TableName: TABLE_NAME, Key: { pk: "leaderboard" } })
+      new GetCommand({ TableName: TABLE_NAME, Key: { pk: LEADERBOARD_PK } })
     );
-    const lbItem = lbResult.Item || { pk: "leaderboard", entries: [], version: 0 };
+    const lbItem = lbResult.Item || { pk: LEADERBOARD_PK, entries: [], version: 0 };
     const entries = lbItem.entries || lbItem.top20 || [];
     const lbVersion = lbItem.version || 0;
 
@@ -238,7 +243,7 @@ export const handler = async (event) => {
         await ddb.send(
           new PutCommand({
             TableName: TABLE_NAME,
-            Item: { pk: "leaderboard", entries: filtered, version: lbVersion + 1 },
+            Item: { pk: LEADERBOARD_PK, entries: filtered, version: lbVersion + 1 },
             ConditionExpression: "attribute_not_exists(version) OR version = :v",
             ExpressionAttributeValues: { ":v": lbVersion },
           })
@@ -280,9 +285,9 @@ export const handler = async (event) => {
   if (!hasPending) {
     const targetName = lookupKey;
     const lbResult = await ddb.send(
-      new GetCommand({ TableName: TABLE_NAME, Key: { pk: "leaderboard" } })
+      new GetCommand({ TableName: TABLE_NAME, Key: { pk: LEADERBOARD_PK } })
     );
-    const lbItem = lbResult.Item || { pk: "leaderboard", entries: [], version: 0 };
+    const lbItem = lbResult.Item || { pk: LEADERBOARD_PK, entries: [], version: 0 };
     const entries = lbItem.entries || lbItem.top20 || [];
     const alreadyApproved = entries.some((e) => e.name === targetName);
 
@@ -300,9 +305,9 @@ export const handler = async (event) => {
 
   // 1. 現在のランキングを取得
   const lbResult = await ddb.send(
-    new GetCommand({ TableName: TABLE_NAME, Key: { pk: "leaderboard" } })
+    new GetCommand({ TableName: TABLE_NAME, Key: { pk: LEADERBOARD_PK } })
   );
-  const lbItem = lbResult.Item || { pk: "leaderboard", entries: [], version: 0 };
+  const lbItem = lbResult.Item || { pk: LEADERBOARD_PK, entries: [], version: 0 };
   // entries キーを優先し、旧形式 top20 からのフォールバックも対応
   const entries = lbItem.entries || lbItem.top20 || [];
   const lbVersion = lbItem.version || 0;
@@ -317,7 +322,7 @@ export const handler = async (event) => {
     await ddb.send(
       new PutCommand({
         TableName: TABLE_NAME,
-        Item: { pk: "leaderboard", entries: merged, version: lbVersion + 1 },
+        Item: { pk: LEADERBOARD_PK, entries: merged, version: lbVersion + 1 },
         ConditionExpression: "attribute_not_exists(version) OR version = :v",
         ExpressionAttributeValues: { ":v": lbVersion },
       })

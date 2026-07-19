@@ -1,0 +1,10 @@
+{
+  "updatedAt": "2026-07-18T23:59:59Z",
+  "entries": [
+    { "name": "アーカイブいちい", "totalTimeCs": 1234 },
+    { "name": "アーカイブにい", "totalTimeCs": 2345 },
+    { "name": "アーカイブさんい", "totalTimeCs": 3456 },
+    { "name": "アーカイブよんい", "totalTimeCs": 4567 },
+    { "name": "アーカイブごい", "totalTimeCs": 5678 }
+  ]
+}

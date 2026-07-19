@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="canonical" href="https://all-stars.precure.tv/archive/v1.html" />
+  <title>パーフェクトランキング アーカイブ（v1）| プリキュアオールスターズいえるかなクイズ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Kaisei+Decol&family=Noto+Sans+JP:wght@500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+<body>
+  <div id="quiz-container">
+    <h1>🏆パーフェクトランキング<br>アーカイブ🏆</h1>
+    <p class="archive-note">
+      サイト公開から 2026年7月18日 までの記録です。<br>
+      v1.3.0 で問題構成が変わったため、ランキングを仕切り直しました。
+    </p>
+    <div id="archive-list">よみこみちゅう…</div>
+    <p id="archive-back"><a href="../">トップへもどる</a></p>
+  </div>
+
+  <script>
+  (async () => {
+    const list = document.getElementById('archive-list');
+
+    const esc = (s) => String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+    try {
+      const res = await fetch('leaderboard-v1.json');
+      const data = await res.json();
+      const entries = Array.isArray(data.entries) ? data.entries : [];
+      if (!entries.length) {
+        list.textContent = 'きろくはありません。';
+        return;
+      }
+
+      // 現行ランキングと同じティア表示（1〜3位メダル / 〜10位 / 〜20位 / 21位〜インライン）
+      const medals = ['🥇', '🥈', '🥉'];
+      const topFontSizes = ['1.25em', '1.15em', '1.05em'];
+
+      let html = '<table class="leaderboard-table"><thead><tr><th>じゅんい</th><th>なまえ</th><th>タイム</th></tr></thead><tbody>';
+      entries.slice(0, 20).forEach((entry, i) => {
+        const rank = i + 1;
+        const timeSec = (entry.totalTimeCs / 100).toFixed(2);
+        if (rank <= 3) {
+          html += `<tr class="lb-top3" style="font-size:${topFontSizes[i]};">
+            <td><strong>${medals[i]} ${rank}</strong></td>
+            <td><strong>${esc(entry.name)}</strong></td>
+            <td><strong>${timeSec}秒</strong></td>
+          </tr>`;
+        } else if (rank <= 10) {
+          html += `<tr><td>${rank}</td><td>${esc(entry.name)}</td><td>${timeSec}秒</td></tr>`;
+        } else {
+          html += `<tr class="lb-minor"><td>${rank}</td><td>${esc(entry.name)}</td><td>${timeSec}秒</td></tr>`;
+        }
+      });
+      html += '</tbody></table>';
+
+      if (entries.length > 20) {
+        const inline = entries.slice(20).map((entry, i) =>
+          `${i + 21}: ${esc(entry.name)} (${(entry.totalTimeCs / 100).toFixed(2)}秒)`);
+        html += `<div class="lb-rest">${inline.join(' / ')}</div>`;
+      }
+
+      list.innerHTML = html;
+    } catch (_) {
+      list.textContent = 'よみこみに しっぱいしました。';
+    }
+  })();
+  </script>
+</body>
+</html>

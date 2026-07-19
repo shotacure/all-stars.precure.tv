@@ -5,6 +5,9 @@
       "ja": "キュアブラック",
       "en": "Cure Black"
     },
+    "rollcall": {
+      "ja": "光の使者"
+    },
     "civilian": {
       "ja": "美墨なぎさ",
       "en": "Misumi Nagisa"
@@ -31,6 +34,9 @@
     "transformed": {
       "ja": "キュアホワイト",
       "en": "Cure White"
+    },
+    "rollcall": {
+      "ja": "光の使者"
     },
     "civilian": {
       "ja": "雪城ほのか",
@@ -59,6 +65,9 @@
       "ja": "シャイニールミナス",
       "en": "Shiny Luminous"
     },
+    "rollcall": {
+      "ja": "輝く生命"
+    },
     "civilian": {
       "ja": "九条ひかり",
       "en": "Kujo Hikari"
@@ -77,6 +86,9 @@
     "transformed": {
       "ja": "キュアブルーム",
       "en": "Cure Bloom"
+    },
+    "rollcall": {
+      "ja": "輝く金の花"
     },
     "civilian": {
       "ja": "日向 咲",
@@ -105,6 +117,9 @@
       "ja": "キュアイーグレット",
       "en": "Cure Egret"
     },
+    "rollcall": {
+      "ja": "きらめく銀の翼"
+    },
     "civilian": {
       "ja": "美翔 舞",
       "en": "Misho Mai"
@@ -131,6 +146,9 @@
     "transformed": {
       "ja": "キュアブライト",
       "en": "Cure Bright"
+    },
+    "rollcall": {
+      "ja": "天空に満ちる月"
     },
     "civilian": {
       "ja": "日向 咲",
@@ -159,6 +177,9 @@
       "ja": "キュアウィンディ",
       "en": "Cure Windy"
     },
+    "rollcall": {
+      "ja": "大地に薫る風"
+    },
     "civilian": {
       "ja": "美翔 舞",
       "en": "Misho Mai"
@@ -186,6 +207,9 @@
       "ja": "キュアドリーム",
       "en": "Cure Dream"
     },
+    "rollcall": {
+      "ja": "大いなる希望の力"
+    },
     "civilian": {
       "ja": "夢原のぞみ",
       "en": "Yumehara Nozomi"
@@ -209,6 +233,9 @@
       "ja": "キュアルージュ",
       "en": "Cure Rouge"
     },
+    "rollcall": {
+      "ja": "情熱の赤い炎"
+    },
     "civilian": {
       "ja": "夏木りん",
       "en": "Natsuki Rin"
@@ -227,6 +254,9 @@
     "transformed": {
       "ja": "キュアレモネード",
       "en": "Cure Lemonade"
+    },
+    "rollcall": {
+      "ja": "はじけるレモンの香り"
     },
     "civilian": {
       "ja": "春日野うらら",
@@ -251,6 +281,9 @@
       "ja": "キュアミント",
       "en": "Cure Mint"
     },
+    "rollcall": {
+      "ja": "やすらぎの緑の大地"
+    },
     "civilian": {
       "ja": "秋元こまち",
       "en": "Akimoto Komachi"
@@ -265,6 +298,9 @@
     "transformed": {
       "ja": "キュアアクア",
       "en": "Cure Aqua"
+    },
+    "rollcall": {
+      "ja": "知性の青き泉"
     },
     "civilian": {
       "ja": "水無月かれん",
@@ -281,6 +317,9 @@
       "ja": "ミルキィローズ",
       "en": "Milky Rose"
     },
+    "rollcall": {
+      "ja": "青いバラは秘密のしるし"
+    },
     "civilian": {
       "ja": "美々野くるみ (ミルク)",
       "en": "Mimino Kurumi (Milk)"
@@ -295,6 +334,9 @@
     "transformed": {
       "ja": "キュアピーチ",
       "en": "Cure Peach"
+    },
+    "rollcall": {
+      "ja": "ピンクのハートは愛あるしるし　もぎたてフレッシュ"
     },
     "civilian": {
       "ja": "桃園ラブ",
@@ -319,6 +361,9 @@
       "ja": "キュアベリー",
       "en": "Cure Berry"
     },
+    "rollcall": {
+      "ja": "ブルーのハートは希望のしるし　つみたてフレッシュ"
+    },
     "civilian": {
       "ja": "蒼乃美希",
       "en": "Aono Miki"
@@ -341,6 +386,9 @@
     "transformed": {
       "ja": "キュアパイン",
       "en": "Cure Pine"
+    },
+    "rollcall": {
+      "ja": "イエローハートは祈りのしるし　とれたてフレッシュ"
     },
     "civilian": {
       "ja": "山吹祈里",
@@ -365,6 +413,9 @@
       "ja": "キュアパッション",
       "en": "Cure Passion"
     },
+    "rollcall": {
+      "ja": "真っ赤なハートは幸せのあかし　うれたてフレッシュ"
+    },
     "civilian": {
       "ja": "東せつな",
       "en": "Higashi Setsuna"
@@ -379,6 +430,9 @@
     "transformed": {
       "ja": "キュアブロッサム",
       "en": "Cure Blossom"
+    },
+    "rollcall": {
+      "ja": "大地に咲く一輪の花"
     },
     "civilian": {
       "ja": "花咲つぼみ",
@@ -403,6 +457,9 @@
       "ja": "キュアマリン",
       "en": "Cure Marine"
     },
+    "rollcall": {
+      "ja": "海風に揺れる一輪の花"
+    },
     "civilian": {
       "ja": "来海えりか",
       "en": "Kurumi Erika"
@@ -426,6 +483,9 @@
       "ja": "キュアサンシャイン",
       "en": "Cure Sunshine"
     },
+    "rollcall": {
+      "ja": "陽の光浴びる一輪の花"
+    },
     "civilian": {
       "ja": "明堂院いつき",
       "en": "Myodoin Itsuki"
@@ -444,6 +504,9 @@
     "transformed": {
       "ja": "キュアムーンライト",
       "en": "Cure Moonlight"
+    },
+    "rollcall": {
+      "ja": "月光に冴える一輪の花"
     },
     "civilian": {
       "ja": "月影ゆり",
@@ -468,6 +531,9 @@
       "ja": "キュアメロディ",
       "en": "Cure Melody"
     },
+    "rollcall": {
+      "ja": "爪弾くは荒ぶる調べ"
+    },
     "civilian": {
       "ja": "北条 響",
       "en": "Hojo Hibiki"
@@ -490,6 +556,9 @@
     "transformed": {
       "ja": "キュアリズム",
       "en": "Cure Rhythm"
+    },
+    "rollcall": {
+      "ja": "爪弾くはたおやかな調べ"
     },
     "civilian": {
       "ja": "南野 奏",
@@ -514,6 +583,9 @@
       "ja": "キュアビート",
       "en": "Cure Beat"
     },
+    "rollcall": {
+      "ja": "爪弾くは魂の調べ"
+    },
     "civilian": {
       "ja": "黒川エレン",
       "en": "Kurokawa Eren"
@@ -528,6 +600,9 @@
     "transformed": {
       "ja": "キュアミューズ",
       "en": "Cure Muse"
+    },
+    "rollcall": {
+      "ja": "爪弾くは女神の調べ"
     },
     "civilian": {
       "ja": "調辺アコ",
@@ -552,6 +627,9 @@
       "ja": "キュアハッピー",
       "en": "Cure Happy"
     },
+    "rollcall": {
+      "ja": "キラキラ輝く未来の光"
+    },
     "civilian": {
       "ja": "星空みゆき",
       "en": "Hoshizora Miyuki"
@@ -574,6 +652,9 @@
     "transformed": {
       "ja": "キュアサニー",
       "en": "Cure Sunny"
+    },
+    "rollcall": {
+      "ja": "太陽サンサン熱血パワー"
     },
     "civilian": {
       "ja": "日野あかね",
@@ -598,6 +679,9 @@
       "ja": "キュアピース",
       "en": "Cure Peace"
     },
+    "rollcall": {
+      "ja": "ピカピカぴかりんじゃんけんポン♪"
+    },
     "civilian": {
       "ja": "黄瀬やよい",
       "en": "Kise Yayoi"
@@ -620,6 +704,9 @@
     "transformed": {
       "ja": "キュアマーチ",
       "en": "Cure March"
+    },
+    "rollcall": {
+      "ja": "勇気リンリン直球勝負"
     },
     "civilian": {
       "ja": "緑川なお",
@@ -644,6 +731,9 @@
       "ja": "キュアビューティ",
       "en": "Cure Beauty"
     },
+    "rollcall": {
+      "ja": "しんしんと降りつもる清き心"
+    },
     "civilian": {
       "ja": "青木れいか",
       "en": "Aoki Reika"
@@ -662,6 +752,9 @@
     "transformed": {
       "ja": "キュアハート",
       "en": "Cure Heart"
+    },
+    "rollcall": {
+      "ja": "みなぎる愛"
     },
     "civilian": {
       "ja": "相田マナ",
@@ -690,6 +783,9 @@
       "ja": "キュアダイヤモンド",
       "en": "Cure Diamond"
     },
+    "rollcall": {
+      "ja": "英知の光"
+    },
     "civilian": {
       "ja": "菱川六花",
       "en": "Hishikawa Rikka"
@@ -716,6 +812,9 @@
     "transformed": {
       "ja": "キュアロゼッタ",
       "en": "Cure Rosetta"
+    },
+    "rollcall": {
+      "ja": "ひだまりポカポカ"
     },
     "civilian": {
       "ja": "四葉ありす",
@@ -744,6 +843,9 @@
       "ja": "キュアソード",
       "en": "Cure Sword"
     },
+    "rollcall": {
+      "ja": "勇気の刃"
+    },
     "civilian": {
       "ja": "剣崎真琴",
       "en": "Kenzaki Makoto"
@@ -763,6 +865,9 @@
       "ja": "キュアエース",
       "en": "Cure Ace"
     },
+    "rollcall": {
+      "ja": "愛の切り札"
+    },
     "civilian": {
       "ja": "円 亜久里",
       "en": "Madoka Aguri"
@@ -777,6 +882,9 @@
     "transformed": {
       "ja": "キュアラブリー",
       "en": "Cure Lovely"
+    },
+    "rollcall": {
+      "ja": "世界に広がるビッグな愛"
     },
     "civilian": {
       "ja": "愛乃めぐみ",
@@ -805,6 +913,9 @@
       "ja": "キュアプリンセス",
       "en": "Cure Princess"
     },
+    "rollcall": {
+      "ja": "天空に舞う蒼き風"
+    },
     "civilian": {
       "ja": "白雪ひめ",
       "en": "Shirayuki Hime"
@@ -823,6 +934,9 @@
     "transformed": {
       "ja": "キュアハニー",
       "en": "Cure Honey"
+    },
+    "rollcall": {
+      "ja": "大地に実る命の光"
     },
     "civilian": {
       "ja": "大森ゆうこ",
@@ -851,6 +965,9 @@
       "ja": "キュアフォーチュン",
       "en": "Cure Fortune"
     },
+    "rollcall": {
+      "ja": "夜空にきらめく希望の星"
+    },
     "civilian": {
       "ja": "氷川いおな",
       "en": "Hikawa Inona"
@@ -869,6 +986,9 @@
     "transformed": {
       "ja": "キュアフローラ",
       "en": "Cure Flora"
+    },
+    "rollcall": {
+      "ja": "咲きほこる花のプリンセス"
     },
     "civilian": {
       "ja": "春野はるか",
@@ -897,6 +1017,9 @@
       "ja": "キュアマーメイド",
       "en": "Cure Mermaid"
     },
+    "rollcall": {
+      "ja": "澄みわたる海のプリンセス"
+    },
     "civilian": {
       "ja": "海藤みなみ",
       "en": "Kaido Minami"
@@ -923,6 +1046,9 @@
     "transformed": {
       "ja": "キュアトゥインクル",
       "en": "Cure Twinkle"
+    },
+    "rollcall": {
+      "ja": "きらめく星のプリンセス"
     },
     "civilian": {
       "ja": "天ノ川きらら",
@@ -951,6 +1077,9 @@
       "ja": "キュアスカーレット",
       "en": "Cure Scarlet"
     },
+    "rollcall": {
+      "ja": "深紅の炎のプリンセス"
+    },
     "civilian": {
       "ja": "紅城トワ",
       "en": "Akagi Towa"
@@ -969,6 +1098,9 @@
     "transformed": {
       "ja": "キュアミラクル",
       "en": "Cure Miracle"
+    },
+    "rollcall": {
+      "ja": "ふたりの奇跡"
     },
     "civilian": {
       "ja": "朝日奈みらい",
@@ -997,6 +1129,9 @@
       "ja": "キュアマジカル",
       "en": "Cure Magical"
     },
+    "rollcall": {
+      "ja": "ふたりの魔法"
+    },
     "civilian": {
       "ja": "十六夜リコ",
       "en": "Izayoi Liko"
@@ -1024,6 +1159,9 @@
       "ja": "キュアフェリーチェ",
       "en": "Cure Felice"
     },
+    "rollcall": {
+      "ja": "あまねく生命に祝福を"
+    },
     "civilian": {
       "ja": "花海ことは",
       "en": "Hanami Kotoha"
@@ -1038,6 +1176,9 @@
     "transformed": {
       "ja": "キュアホイップ",
       "en": "Cure Whip"
+    },
+    "rollcall": {
+      "ja": "元気と笑顔をレッツ・ラ・まぜまぜ"
     },
     "civilian": {
       "ja": "宇佐美いちか",
@@ -1066,6 +1207,9 @@
       "ja": "キュアカスタード",
       "en": "Cure Custard"
     },
+    "rollcall": {
+      "ja": "知性と勇気をレッツ・ラ・まぜまぜ"
+    },
     "civilian": {
       "ja": "有栖川ひまり",
       "en": "Arisugawa Himari"
@@ -1084,6 +1228,9 @@
     "transformed": {
       "ja": "キュアジェラート",
       "en": "Cure Gelato"
+    },
+    "rollcall": {
+      "ja": "自由と情熱をレッツ・ラ・まぜまぜ"
     },
     "civilian": {
       "ja": "立神あおい",
@@ -1112,6 +1259,9 @@
       "ja": "キュアマカロン",
       "en": "Cure Macaron"
     },
+    "rollcall": {
+      "ja": "美しさとトキメキをレッツ・ラ・まぜまぜ"
+    },
     "civilian": {
       "ja": "琴爪ゆかり",
       "en": "Kotozume Yukari"
@@ -1130,6 +1280,9 @@
     "transformed": {
       "ja": "キュアショコラ",
       "en": "Cure Chocolat"
+    },
+    "rollcall": {
+      "ja": "強さと愛をレッツ・ラ・まぜまぜ"
     },
     "civilian": {
       "ja": "剣城あきら",
@@ -1150,6 +1303,9 @@
       "ja": "キュアパルフェ",
       "en": "Cure Parfait"
     },
+    "rollcall": {
+      "ja": "夢と希望をレッツ・ラ・まぜまぜ"
+    },
     "civilian": {
       "ja": "キラ星シエル",
       "en": "Kirahoshi Ciel"
@@ -1168,6 +1324,9 @@
     "transformed": {
       "ja": "キュアエール",
       "en": "Cure Yell"
+    },
+    "rollcall": {
+      "ja": "みんなを応援　元気のプリキュア"
     },
     "civilian": {
       "ja": "野乃はな",
@@ -1196,6 +1355,9 @@
       "ja": "キュアアンジュ",
       "en": "Cure Ange"
     },
+    "rollcall": {
+      "ja": "みんなを癒す　知恵のプリキュア"
+    },
     "civilian": {
       "ja": "薬師寺さあや",
       "en": "Yakushiji Saaya"
@@ -1223,6 +1385,9 @@
       "ja": "キュアエトワール",
       "en": "Cure Étoile"
     },
+    "rollcall": {
+      "ja": "みんな輝け　力のプリキュア"
+    },
     "civilian": {
       "ja": "輝木ほまれ",
       "en": "Kagayaki Homare"
@@ -1245,6 +1410,9 @@
     "transformed": {
       "ja": "キュアマシェリ",
       "en": "Cure Macherie"
+    },
+    "rollcall": {
+      "ja": "みんな大好き　愛のプリキュア"
     },
     "civilian": {
       "ja": "愛崎えみる",
@@ -1273,6 +1441,9 @@
       "ja": "キュアアムール",
       "en": "Cure Amour"
     },
+    "rollcall": {
+      "ja": "みんな大好き　愛のプリキュア"
+    },
     "civilian": {
       "ja": "ルールー・アムール",
       "en": "Ruru Amour"
@@ -1291,6 +1462,9 @@
     "transformed": {
       "ja": "キュアスター",
       "en": "Cure Star"
+    },
+    "rollcall": {
+      "ja": "宇宙(そら)に輝くキラキラ星"
     },
     "civilian": {
       "ja": "星奈ひかる",
@@ -1319,6 +1493,9 @@
       "ja": "キュアミルキー",
       "en": "Cure Milky"
     },
+    "rollcall": {
+      "ja": "天にあまねくミルキーウェイ"
+    },
     "civilian": {
       "ja": "羽衣ララ",
       "en": "Hagoromo Lala"
@@ -1345,6 +1522,9 @@
     "transformed": {
       "ja": "キュアソレイユ",
       "en": "Cure Soleil"
+    },
+    "rollcall": {
+      "ja": "宇宙を照らす　灼熱のきらめき"
     },
     "civilian": {
       "ja": "天宮えれな",
@@ -1373,6 +1553,9 @@
       "ja": "キュアセレーネ",
       "en": "Cure Selene"
     },
+    "rollcall": {
+      "ja": "夜空に輝く　神秘の月あかり"
+    },
     "civilian": {
       "ja": "香久矢まどか",
       "en": "Kaguya Madoka"
@@ -1400,6 +1583,9 @@
       "ja": "キュアコスモ",
       "en": "Cure Cosmo"
     },
+    "rollcall": {
+      "ja": "銀河に光る虹色のスペクトル"
+    },
     "civilian": {
       "ja": "ユニ",
       "en": "Yuni"
@@ -1418,6 +1604,9 @@
     "transformed": {
       "ja": "キュアグレース",
       "en": "Cure Grace"
+    },
+    "rollcall": {
+      "ja": "重なる二つの花"
     },
     "civilian": {
       "ja": "花寺のどか",
@@ -1446,6 +1635,9 @@
       "ja": "キュアフォンテーヌ",
       "en": "Cure Fontaine"
     },
+    "rollcall": {
+      "ja": "交わる二つの流れ"
+    },
     "civilian": {
       "ja": "沢泉ちゆ",
       "en": "Sawaizumi Chiyu"
@@ -1473,6 +1665,9 @@
       "ja": "キュアスパークル",
       "en": "Cure Sparkle"
     },
+    "rollcall": {
+      "ja": "溶け合う二つの光"
+    },
     "civilian": {
       "ja": "平光ひなた",
       "en": "Hiramitsu Hinata"
@@ -1496,6 +1691,9 @@
       "ja": "キュアアース",
       "en": "Cure Earth"
     },
+    "rollcall": {
+      "ja": "時を経て繋がる二つの風"
+    },
     "civilian": {
       "ja": "風鈴アスミ",
       "en": "Furin Asumi"
@@ -1514,6 +1712,9 @@
     "transformed": {
       "ja": "キュアサマー",
       "en": "Cure Summer"
+    },
+    "rollcall": {
+      "ja": "ときめく常夏"
     },
     "civilian": {
       "ja": "夏海まなつ",
@@ -1542,6 +1743,9 @@
       "ja": "キュアコーラル",
       "en": "Cure Coral"
     },
+    "rollcall": {
+      "ja": "きらめく宝石"
+    },
     "civilian": {
       "ja": "涼村さんご",
       "en": "Suzumura Sango"
@@ -1564,6 +1768,9 @@
     "transformed": {
       "ja": "キュアパパイア",
       "en": "Cure Papaya"
+    },
+    "rollcall": {
+      "ja": "ひらめく果実(フルーツ)"
     },
     "civilian": {
       "ja": "一之瀬みのり",
@@ -1588,6 +1795,9 @@
       "ja": "キュアフラミンゴ",
       "en": "Cure Flamingo"
     },
+    "rollcall": {
+      "ja": "はためく翼"
+    },
     "civilian": {
       "ja": "滝沢あすか",
       "en": "Takizawa Asuka"
@@ -1611,6 +1821,9 @@
       "ja": "キュアラメール",
       "en": "Cure La-mer"
     },
+    "rollcall": {
+      "ja": "ゆらめく大海原(オーシャン)"
+    },
     "civilian": {
       "ja": "ローラ・ラメール",
       "en": "Laura La-mer"
@@ -1629,6 +1842,9 @@
     "transformed": {
       "ja": "キュアプレシャス",
       "en": "Cure Precious"
+    },
+    "rollcall": {
+      "ja": "あつあつごはんで、みなぎるパワー"
     },
     "civilian": {
       "ja": "和実ゆい",
@@ -1657,6 +1873,9 @@
       "ja": "キュアスパイシー",
       "en": "Cure Spicy"
     },
+    "rollcall": {
+      "ja": "ふわふわサンドde心にスパイス"
+    },
     "civilian": {
       "ja": "芙羽ここね",
       "en": "Fuwa Kokone"
@@ -1683,6 +1902,9 @@
     "transformed": {
       "ja": "キュアヤムヤム",
       "en": "Cure Yum-Yum"
+    },
+    "rollcall": {
+      "ja": "きらめくヌードル・エモーション"
     },
     "civilian": {
       "ja": "華満らん",
@@ -1711,6 +1933,9 @@
       "ja": "キュアフィナーレ",
       "en": "Cure Finale"
     },
+    "rollcall": {
+      "ja": "ジェントルにゴージャスに、咲き誇るスウィートネス"
+    },
     "civilian": {
       "ja": "菓彩あまね",
       "en": "Kasai Amane"
@@ -1737,6 +1962,9 @@
     "transformed": {
       "ja": "キュアスカイ",
       "en": "Cure Sky"
+    },
+    "rollcall": {
+      "ja": "無限にひろがる青い空"
     },
     "civilian": {
       "ja": "ソラ・ハレワタール",
@@ -1765,6 +1993,9 @@
       "ja": "キュアプリズム",
       "en": "Cure Prism"
     },
+    "rollcall": {
+      "ja": "ふわりひろがる優しい光"
+    },
     "civilian": {
       "ja": "虹ヶ丘ましろ",
       "en": "Nijigaoka Mashiro"
@@ -1791,6 +2022,9 @@
     "transformed": {
       "ja": "キュアウィング",
       "en": "Cure Wing"
+    },
+    "rollcall": {
+      "ja": "天高くひろがる勇気"
     },
     "civilian": {
       "ja": "夕凪ツバサ",
@@ -1819,6 +2053,9 @@
       "ja": "キュアバタフライ",
       "en": "Cure Butterfly"
     },
+    "rollcall": {
+      "ja": "アゲてひろがるワンダホー"
+    },
     "civilian": {
       "ja": "聖あげは",
       "en": "Hijiri Ageha"
@@ -1837,6 +2074,9 @@
     "transformed": {
       "ja": "キュアマジェスティ",
       "en": "Cure Majesty"
+    },
+    "rollcall": {
+      "ja": "降り立つ気高き神秘"
     },
     "civilian": {
       "ja": "エル",
@@ -1857,6 +2097,9 @@
       "ja": "キュアワンダフル",
       "en": "Cure Wonderful"
     },
+    "rollcall": {
+      "ja": "みんな大好き素敵な世界"
+    },
     "civilian": {
       "ja": "犬飼こむぎ",
       "en": "Inukai Komugi"
@@ -1875,6 +2118,9 @@
     "transformed": {
       "ja": "キュアフレンディ",
       "en": "Cure Friendy"
+    },
+    "rollcall": {
+      "ja": "みんなの笑顔で彩る世界"
     },
     "civilian": {
       "ja": "犬飼いろは",
@@ -1903,6 +2149,9 @@
       "ja": "キュアニャミー",
       "en": "Cure Nyammy"
     },
+    "rollcall": {
+      "ja": "気高くかわいくきらめく世界"
+    },
     "civilian": {
       "ja": "猫屋敷ユキ",
       "en": "Nekoyashiki Yuki"
@@ -1921,6 +2170,9 @@
     "transformed": {
       "ja": "キュアリリアン",
       "en": "Cure Lillian"
+    },
+    "rollcall": {
+      "ja": "結んで紡いでつながる世界"
     },
     "civilian": {
       "ja": "猫屋敷まゆ",
@@ -1949,6 +2201,9 @@
       "ja": "キュアアイドル",
       "en": "Cure Idol"
     },
+    "rollcall": {
+      "ja": "キミと歌う、ハートのキラキラ！　笑顔ニッコリ、"
+    },
     "civilian": {
       "ja": "咲良うた",
       "en": "Sakura Uta"
@@ -1975,6 +2230,9 @@
     "transformed": {
       "ja": "キュアウインク",
       "en": "Cure Wink"
+    },
+    "rollcall": {
+      "ja": "キミと瞬く、ハートの勇気！　お目目パッチン、"
     },
     "civilian": {
       "ja": "蒼風なな",
@@ -2003,6 +2261,9 @@
       "ja": "キュアキュンキュン",
       "en": "Cure Kyun-Kyun"
     },
+    "rollcall": {
+      "ja": "キミと踊る、ハートのリズム！　心キュンキュン、"
+    },
     "civilian": {
       "ja": "紫雨こころ",
       "en": "Shigure Kokoro"
@@ -2030,6 +2291,9 @@
       "ja": "キュアズキューン",
       "en": "Cure Zukyoon"
     },
+    "rollcall": {
+      "ja": "ハートをプリっとロックオン！　キミとズッキュン、"
+    },
     "civilian": {
       "ja": "田中ぷりん (プリルン)",
       "en": "Tanaka Purin (Purirun)"
@@ -2048,6 +2312,9 @@
     "transformed": {
       "ja": "キュアキッス",
       "en": "Cure Kiss"
+    },
+    "rollcall": {
+      "ja": "ハートをメロっとひとりじめ！　キミと口づけ、"
     },
     "civilian": {
       "ja": "田中めろん (メロロン)",
@@ -2068,6 +2335,9 @@
       "ja": "キュアアンサー",
       "en": "Cure Answer"
     },
+    "rollcall": {
+      "ja": "どんな謎でもはなまる解決！　名探偵"
+    },
     "civilian": {
       "ja": "明智あんな",
       "en": "Akechi Anna"
@@ -2087,6 +2357,9 @@
       "ja": "キュアミスティック",
       "en": "Cure Mystique"
     },
+    "rollcall": {
+      "ja": "重ねた推理で笑顔にジャンプ！　名探偵"
+    },
     "civilian": {
       "ja": "小林みくる",
       "en": "Kobayashi Mikuru"
@@ -2103,8 +2376,33 @@
   {
     "series": "2026",
     "transformed": {
+      "ja": "キュアエクレール",
+      "en": "Cure Eclair"
+    },
+    "rollcall": {
+      "ja": "解き放て！　内なる真実の香り　名探偵"
+    },
+    "civilian": {
+      "ja": "帆羽くれあ",
+      "en": "Howa Kurea"
+    },
+    "voice": {
+      "ja": "長谷川育美",
+      "en": "Hasegawa Ikumi"
+    },
+    "birthday": {
+      "ja": "8月10日",
+      "en": "August 10th"
+    }
+  },
+  {
+    "series": "2026",
+    "transformed": {
       "ja": "キュアアルカナ・シャドウ",
       "en": "Cure Arcana Shadow"
+    },
+    "rollcall": {
+      "ja": "神秘と秘密で包み込む"
     },
     "civilian": {
       "ja": "森亜るるか",
