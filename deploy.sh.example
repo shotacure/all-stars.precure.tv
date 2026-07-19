@@ -51,6 +51,7 @@ deploy_site() {
     --exclude "*.example" \
     --exclude "leaderboard.json" \
     --delete \
+    --cache-control "public, max-age=300, must-revalidate" \
     ${PROFILE_OPT}
   echo ""
 
