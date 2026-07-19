@@ -6,7 +6,8 @@
       "en": "Cure Black"
     },
     "rollcall": {
-      "ja": "光の使者"
+      "ja": "光の使者",
+      "en": "Emissary of light"
     },
     "civilian": {
       "ja": "美墨なぎさ",
@@ -36,7 +37,8 @@
       "en": "Cure White"
     },
     "rollcall": {
-      "ja": "光の使者"
+      "ja": "光の使者",
+      "en": "Emissary of light"
     },
     "civilian": {
       "ja": "雪城ほのか",
@@ -66,7 +68,8 @@
       "en": "Shiny Luminous"
     },
     "rollcall": {
-      "ja": "輝く生命"
+      "ja": "輝く生命",
+      "en": "Shining life"
     },
     "civilian": {
       "ja": "九条ひかり",
@@ -88,7 +91,8 @@
       "en": "Cure Bloom"
     },
     "rollcall": {
-      "ja": "輝く金の花"
+      "ja": "輝く金の花",
+      "en": "The shining golden flower"
     },
     "civilian": {
       "ja": "日向 咲",
@@ -118,7 +122,8 @@
       "en": "Cure Egret"
     },
     "rollcall": {
-      "ja": "きらめく銀の翼"
+      "ja": "きらめく銀の翼",
+      "en": "The sparkling silver wing"
     },
     "civilian": {
       "ja": "美翔 舞",
@@ -148,7 +153,8 @@
       "en": "Cure Bright"
     },
     "rollcall": {
-      "ja": "天空に満ちる月"
+      "ja": "天空に満ちる月",
+      "en": "The full moon in the sky"
     },
     "civilian": {
       "ja": "日向 咲",
@@ -178,7 +184,8 @@
       "en": "Cure Windy"
     },
     "rollcall": {
-      "ja": "大地に薫る風"
+      "ja": "大地に薫る風",
+      "en": "The scented wind across the earth"
     },
     "civilian": {
       "ja": "美翔 舞",
@@ -208,7 +215,8 @@
       "en": "Cure Dream"
     },
     "rollcall": {
-      "ja": "大いなる希望の力"
+      "ja": "大いなる希望の力",
+      "en": "The great power of hope"
     },
     "civilian": {
       "ja": "夢原のぞみ",
@@ -234,7 +242,8 @@
       "en": "Cure Rouge"
     },
     "rollcall": {
-      "ja": "情熱の赤い炎"
+      "ja": "情熱の赤い炎",
+      "en": "The red flame of passion"
     },
     "civilian": {
       "ja": "夏木りん",
@@ -256,7 +265,8 @@
       "en": "Cure Lemonade"
     },
     "rollcall": {
-      "ja": "はじけるレモンの香り"
+      "ja": "はじけるレモンの香り",
+      "en": "The effervescent scent of lemon"
     },
     "civilian": {
       "ja": "春日野うらら",
@@ -282,7 +292,8 @@
       "en": "Cure Mint"
     },
     "rollcall": {
-      "ja": "やすらぎの緑の大地"
+      "ja": "やすらぎの緑の大地",
+      "en": "The green earth of tranquility"
     },
     "civilian": {
       "ja": "秋元こまち",
@@ -300,7 +311,8 @@
       "en": "Cure Aqua"
     },
     "rollcall": {
-      "ja": "知性の青き泉"
+      "ja": "知性の青き泉",
+      "en": "The blue spring of intelligence"
     },
     "civilian": {
       "ja": "水無月かれん",
@@ -318,7 +330,8 @@
       "en": "Milky Rose"
     },
     "rollcall": {
-      "ja": "青いバラは秘密のしるし"
+      "ja": "青いバラは秘密のしるし",
+      "en": "The blue rose is my secret emblem"
     },
     "civilian": {
       "ja": "美々野くるみ (ミルク)",
@@ -336,7 +349,8 @@
       "en": "Cure Peach"
     },
     "rollcall": {
-      "ja": "ピンクのハートは愛あるしるし　もぎたてフレッシュ"
+      "ja": "ピンクのハートは愛あるしるし　もぎたてフレッシュ",
+      "en": "The pink heart is the symbol of love! Freshly-picked"
     },
     "civilian": {
       "ja": "桃園ラブ",
@@ -362,7 +376,8 @@
       "en": "Cure Berry"
     },
     "rollcall": {
-      "ja": "ブルーのハートは希望のしるし　つみたてフレッシュ"
+      "ja": "ブルーのハートは希望のしるし　つみたてフレッシュ",
+      "en": "The blue heart is the symbol of hope! Freshly-gathered"
     },
     "civilian": {
       "ja": "蒼乃美希",
@@ -388,7 +403,8 @@
       "en": "Cure Pine"
     },
     "rollcall": {
-      "ja": "イエローハートは祈りのしるし　とれたてフレッシュ"
+      "ja": "イエローハートは祈りのしるし　とれたてフレッシュ",
+      "en": "The yellow heart is the sign of prayers! Freshly-harvested"
     },
     "civilian": {
       "ja": "山吹祈里",
@@ -414,7 +430,8 @@
       "en": "Cure Passion"
     },
     "rollcall": {
-      "ja": "真っ赤なハートは幸せのあかし　うれたてフレッシュ"
+      "ja": "真っ赤なハートは幸せのあかし　うれたてフレッシュ",
+      "en": "The crimson heart is the proof of happiness! Freshly-ripened"
     },
     "civilian": {
       "ja": "東せつな",
@@ -432,7 +449,8 @@
       "en": "Cure Blossom"
     },
     "rollcall": {
-      "ja": "大地に咲く一輪の花"
+      "ja": "大地に咲く一輪の花",
+      "en": "The flower that blooms upon the earth"
     },
     "civilian": {
       "ja": "花咲つぼみ",
@@ -458,7 +476,8 @@
       "en": "Cure Marine"
     },
     "rollcall": {
-      "ja": "海風に揺れる一輪の花"
+      "ja": "海風に揺れる一輪の花",
+      "en": "The flower that sways in the sea breeze"
     },
     "civilian": {
       "ja": "来海えりか",
@@ -484,7 +503,8 @@
       "en": "Cure Sunshine"
     },
     "rollcall": {
-      "ja": "陽の光浴びる一輪の花"
+      "ja": "陽の光浴びる一輪の花",
+      "en": "The flower that bathes in the rays of the sun"
     },
     "civilian": {
       "ja": "明堂院いつき",
@@ -506,7 +526,8 @@
       "en": "Cure Moonlight"
     },
     "rollcall": {
-      "ja": "月光に冴える一輪の花"
+      "ja": "月光に冴える一輪の花",
+      "en": "The flower that gleams in the light of the moon"
     },
     "civilian": {
       "ja": "月影ゆり",
@@ -532,7 +553,8 @@
       "en": "Cure Melody"
     },
     "rollcall": {
-      "ja": "爪弾くは荒ぶる調べ"
+      "ja": "爪弾くは荒ぶる調べ",
+      "en": "Strumming the wild tune"
     },
     "civilian": {
       "ja": "北条 響",
@@ -558,7 +580,8 @@
       "en": "Cure Rhythm"
     },
     "rollcall": {
-      "ja": "爪弾くはたおやかな調べ"
+      "ja": "爪弾くはたおやかな調べ",
+      "en": "Strumming the tranquil tune"
     },
     "civilian": {
       "ja": "南野 奏",
@@ -584,7 +607,8 @@
       "en": "Cure Beat"
     },
     "rollcall": {
-      "ja": "爪弾くは魂の調べ"
+      "ja": "爪弾くは魂の調べ",
+      "en": "Strumming the soul's tune"
     },
     "civilian": {
       "ja": "黒川エレン",
@@ -602,7 +626,8 @@
       "en": "Cure Muse"
     },
     "rollcall": {
-      "ja": "爪弾くは女神の調べ"
+      "ja": "爪弾くは女神の調べ",
+      "en": "Strumming the goddess' tune"
     },
     "civilian": {
       "ja": "調辺アコ",
@@ -628,7 +653,8 @@
       "en": "Cure Happy"
     },
     "rollcall": {
-      "ja": "キラキラ輝く未来の光"
+      "ja": "キラキラ輝く未来の光",
+      "en": "Twinkling and shining, the light of the future"
     },
     "civilian": {
       "ja": "星空みゆき",
@@ -654,7 +680,8 @@
       "en": "Cure Sunny"
     },
     "rollcall": {
-      "ja": "太陽サンサン熱血パワー"
+      "ja": "太陽サンサン熱血パワー",
+      "en": "The brilliant sun, hot-blooded power"
     },
     "civilian": {
       "ja": "日野あかね",
@@ -680,7 +707,8 @@
       "en": "Cure Peace"
     },
     "rollcall": {
-      "ja": "ピカピカぴかりんじゃんけんポン♪"
+      "ja": "ピカピカぴかりんじゃんけんポン♪",
+      "en": "Sparkling and glittering, rock-paper-scissors"
     },
     "civilian": {
       "ja": "黄瀬やよい",
@@ -706,7 +734,8 @@
       "en": "Cure March"
     },
     "rollcall": {
-      "ja": "勇気リンリン直球勝負"
+      "ja": "勇気リンリン直球勝負",
+      "en": "Intense courage, a straight-up bout"
     },
     "civilian": {
       "ja": "緑川なお",
@@ -732,7 +761,8 @@
       "en": "Cure Beauty"
     },
     "rollcall": {
-      "ja": "しんしんと降りつもる清き心"
+      "ja": "しんしんと降りつもる清き心",
+      "en": "The snow falling and gathering, a noble heart"
     },
     "civilian": {
       "ja": "青木れいか",
@@ -754,7 +784,8 @@
       "en": "Cure Heart"
     },
     "rollcall": {
-      "ja": "みなぎる愛"
+      "ja": "みなぎる愛",
+      "en": "Overflowing love"
     },
     "civilian": {
       "ja": "相田マナ",
@@ -784,7 +815,8 @@
       "en": "Cure Diamond"
     },
     "rollcall": {
-      "ja": "英知の光"
+      "ja": "英知の光",
+      "en": "The light of wisdom"
     },
     "civilian": {
       "ja": "菱川六花",
@@ -814,7 +846,8 @@
       "en": "Cure Rosetta"
     },
     "rollcall": {
-      "ja": "ひだまりポカポカ"
+      "ja": "ひだまりポカポカ",
+      "en": "The warmth of the sun"
     },
     "civilian": {
       "ja": "四葉ありす",
@@ -844,7 +877,8 @@
       "en": "Cure Sword"
     },
     "rollcall": {
-      "ja": "勇気の刃"
+      "ja": "勇気の刃",
+      "en": "The blade of courage"
     },
     "civilian": {
       "ja": "剣崎真琴",
@@ -866,7 +900,8 @@
       "en": "Cure Ace"
     },
     "rollcall": {
-      "ja": "愛の切り札"
+      "ja": "愛の切り札",
+      "en": "The trump card of love"
     },
     "civilian": {
       "ja": "円 亜久里",
@@ -884,7 +919,8 @@
       "en": "Cure Lovely"
     },
     "rollcall": {
-      "ja": "世界に広がるビッグな愛"
+      "ja": "世界に広がるビッグな愛",
+      "en": "The big love spreading throughout the world"
     },
     "civilian": {
       "ja": "愛乃めぐみ",
@@ -914,7 +950,8 @@
       "en": "Cure Princess"
     },
     "rollcall": {
-      "ja": "天空に舞う蒼き風"
+      "ja": "天空に舞う蒼き風",
+      "en": "The blue wind dancing in the sky"
     },
     "civilian": {
       "ja": "白雪ひめ",
@@ -936,7 +973,8 @@
       "en": "Cure Honey"
     },
     "rollcall": {
-      "ja": "大地に実る命の光"
+      "ja": "大地に実る命の光",
+      "en": "The light of life flourishing on the earth"
     },
     "civilian": {
       "ja": "大森ゆうこ",
@@ -966,7 +1004,8 @@
       "en": "Cure Fortune"
     },
     "rollcall": {
-      "ja": "夜空にきらめく希望の星"
+      "ja": "夜空にきらめく希望の星",
+      "en": "The star of hope that glitters in the night sky"
     },
     "civilian": {
       "ja": "氷川いおな",
@@ -988,7 +1027,8 @@
       "en": "Cure Flora"
     },
     "rollcall": {
-      "ja": "咲きほこる花のプリンセス"
+      "ja": "咲きほこる花のプリンセス",
+      "en": "Princess of the Flourishing Flowers"
     },
     "civilian": {
       "ja": "春野はるか",
@@ -1018,7 +1058,8 @@
       "en": "Cure Mermaid"
     },
     "rollcall": {
-      "ja": "澄みわたる海のプリンセス"
+      "ja": "澄みわたる海のプリンセス",
+      "en": "Princess of the crystal clear seas"
     },
     "civilian": {
       "ja": "海藤みなみ",
@@ -1048,7 +1089,8 @@
       "en": "Cure Twinkle"
     },
     "rollcall": {
-      "ja": "きらめく星のプリンセス"
+      "ja": "きらめく星のプリンセス",
+      "en": "Princess of the twinkling stars"
     },
     "civilian": {
       "ja": "天ノ川きらら",
@@ -1078,7 +1120,8 @@
       "en": "Cure Scarlet"
     },
     "rollcall": {
-      "ja": "深紅の炎のプリンセス"
+      "ja": "深紅の炎のプリンセス",
+      "en": "Princess of crimson flames"
     },
     "civilian": {
       "ja": "紅城トワ",
@@ -1100,7 +1143,8 @@
       "en": "Cure Miracle"
     },
     "rollcall": {
-      "ja": "ふたりの奇跡"
+      "ja": "ふたりの奇跡",
+      "en": "Our Miracle"
     },
     "civilian": {
       "ja": "朝日奈みらい",
@@ -1130,7 +1174,8 @@
       "en": "Cure Magical"
     },
     "rollcall": {
-      "ja": "ふたりの魔法"
+      "ja": "ふたりの魔法",
+      "en": "Our Magic"
     },
     "civilian": {
       "ja": "十六夜リコ",
@@ -1160,7 +1205,8 @@
       "en": "Cure Felice"
     },
     "rollcall": {
-      "ja": "あまねく生命に祝福を"
+      "ja": "あまねく生命に祝福を",
+      "en": "Spreading blessings to lives far and wide"
     },
     "civilian": {
       "ja": "花海ことは",
@@ -1178,7 +1224,8 @@
       "en": "Cure Whip"
     },
     "rollcall": {
-      "ja": "元気と笑顔をレッツ・ラ・まぜまぜ"
+      "ja": "元気と笑顔をレッツ・ラ・まぜまぜ",
+      "en": "With energy and smiles! Let's・La・Mix It All Up!"
     },
     "civilian": {
       "ja": "宇佐美いちか",
@@ -1208,7 +1255,8 @@
       "en": "Cure Custard"
     },
     "rollcall": {
-      "ja": "知性と勇気をレッツ・ラ・まぜまぜ"
+      "ja": "知性と勇気をレッツ・ラ・まぜまぜ",
+      "en": "With wisdom and courage! Let's・La・Mix It All Up!"
     },
     "civilian": {
       "ja": "有栖川ひまり",
@@ -1230,7 +1278,8 @@
       "en": "Cure Gelato"
     },
     "rollcall": {
-      "ja": "自由と情熱をレッツ・ラ・まぜまぜ"
+      "ja": "自由と情熱をレッツ・ラ・まぜまぜ",
+      "en": "With freedom and passion! Let's・La・Mix It All Up!"
     },
     "civilian": {
       "ja": "立神あおい",
@@ -1260,7 +1309,8 @@
       "en": "Cure Macaron"
     },
     "rollcall": {
-      "ja": "美しさとトキメキをレッツ・ラ・まぜまぜ"
+      "ja": "美しさとトキメキをレッツ・ラ・まぜまぜ",
+      "en": "With beauty and excitement! Let's・La・Mix It All Up!"
     },
     "civilian": {
       "ja": "琴爪ゆかり",
@@ -1282,7 +1332,8 @@
       "en": "Cure Chocolat"
     },
     "rollcall": {
-      "ja": "強さと愛をレッツ・ラ・まぜまぜ"
+      "ja": "強さと愛をレッツ・ラ・まぜまぜ",
+      "en": "With strength and love! Let's・La・Mix It All Up!"
     },
     "civilian": {
       "ja": "剣城あきら",
@@ -1304,7 +1355,8 @@
       "en": "Cure Parfait"
     },
     "rollcall": {
-      "ja": "夢と希望をレッツ・ラ・まぜまぜ"
+      "ja": "夢と希望をレッツ・ラ・まぜまぜ",
+      "en": "With dreams and hope! Let's・La・Mix It All Up!"
     },
     "civilian": {
       "ja": "キラ星シエル",
@@ -1326,7 +1378,8 @@
       "en": "Cure Yell"
     },
     "rollcall": {
-      "ja": "みんなを応援　元気のプリキュア"
+      "ja": "みんなを応援　元気のプリキュア",
+      "en": "Cheering on everyone! The Pretty Cure of High Spirits!"
     },
     "civilian": {
       "ja": "野乃はな",
@@ -1356,7 +1409,8 @@
       "en": "Cure Ange"
     },
     "rollcall": {
-      "ja": "みんなを癒す　知恵のプリキュア"
+      "ja": "みんなを癒す　知恵のプリキュア",
+      "en": "Healing everyone! The Pretty Cure of Wisdom!"
     },
     "civilian": {
       "ja": "薬師寺さあや",
@@ -1386,7 +1440,8 @@
       "en": "Cure Étoile"
     },
     "rollcall": {
-      "ja": "みんな輝け　力のプリキュア"
+      "ja": "みんな輝け　力のプリキュア",
+      "en": "Making everyone shine! The Pretty Cure of Strength!"
     },
     "civilian": {
       "ja": "輝木ほまれ",
@@ -1412,7 +1467,8 @@
       "en": "Cure Macherie"
     },
     "rollcall": {
-      "ja": "みんな大好き　愛のプリキュア"
+      "ja": "みんな大好き　愛のプリキュア",
+      "en": "Loving everyone! The Pretty Cure of Love!"
     },
     "civilian": {
       "ja": "愛崎えみる",
@@ -1442,7 +1498,8 @@
       "en": "Cure Amour"
     },
     "rollcall": {
-      "ja": "みんな大好き　愛のプリキュア"
+      "ja": "みんな大好き　愛のプリキュア",
+      "en": "Loving everyone! The Pretty Cure of Love!"
     },
     "civilian": {
       "ja": "ルールー・アムール",
@@ -1464,7 +1521,8 @@
       "en": "Cure Star"
     },
     "rollcall": {
-      "ja": "宇宙(そら)に輝くキラキラ星"
+      "ja": "宇宙(そら)に輝くキラキラ星",
+      "en": "The twinkling star that shines in the sky"
     },
     "civilian": {
       "ja": "星奈ひかる",
@@ -1494,7 +1552,8 @@
       "en": "Cure Milky"
     },
     "rollcall": {
-      "ja": "天にあまねくミルキーウェイ"
+      "ja": "天にあまねくミルキーウェイ",
+      "en": "The Milky Way stretching across the heavens"
     },
     "civilian": {
       "ja": "羽衣ララ",
@@ -1524,7 +1583,8 @@
       "en": "Cure Soleil"
     },
     "rollcall": {
-      "ja": "宇宙を照らす　灼熱のきらめき"
+      "ja": "宇宙を照らす　灼熱のきらめき",
+      "en": "Light up the sky! With sparkling heat!"
     },
     "civilian": {
       "ja": "天宮えれな",
@@ -1554,7 +1614,8 @@
       "en": "Cure Selene"
     },
     "rollcall": {
-      "ja": "夜空に輝く　神秘の月あかり"
+      "ja": "夜空に輝く　神秘の月あかり",
+      "en": "Light up the night sky! With the secretive moonlight!"
     },
     "civilian": {
       "ja": "香久矢まどか",
@@ -1584,7 +1645,8 @@
       "en": "Cure Cosmo"
     },
     "rollcall": {
-      "ja": "銀河に光る虹色のスペクトル"
+      "ja": "銀河に光る虹色のスペクトル",
+      "en": "The rainbow spectrum lighting up the galaxy"
     },
     "civilian": {
       "ja": "ユニ",
@@ -1606,7 +1668,8 @@
       "en": "Cure Grace"
     },
     "rollcall": {
-      "ja": "重なる二つの花"
+      "ja": "重なる二つの花",
+      "en": "The two overlapping flowers"
     },
     "civilian": {
       "ja": "花寺のどか",
@@ -1636,7 +1699,8 @@
       "en": "Cure Fontaine"
     },
     "rollcall": {
-      "ja": "交わる二つの流れ"
+      "ja": "交わる二つの流れ",
+      "en": "The two intersecting streams"
     },
     "civilian": {
       "ja": "沢泉ちゆ",
@@ -1666,7 +1730,8 @@
       "en": "Cure Sparkle"
     },
     "rollcall": {
-      "ja": "溶け合う二つの光"
+      "ja": "溶け合う二つの光",
+      "en": "The two lights that come together"
     },
     "civilian": {
       "ja": "平光ひなた",
@@ -1692,7 +1757,8 @@
       "en": "Cure Earth"
     },
     "rollcall": {
-      "ja": "時を経て繋がる二つの風"
+      "ja": "時を経て繋がる二つの風",
+      "en": "The two winds that connect through time"
     },
     "civilian": {
       "ja": "風鈴アスミ",
@@ -1714,7 +1780,8 @@
       "en": "Cure Summer"
     },
     "rollcall": {
-      "ja": "ときめく常夏"
+      "ja": "ときめく常夏",
+      "en": "Joyful everlasting summer"
     },
     "civilian": {
       "ja": "夏海まなつ",
@@ -1744,7 +1811,8 @@
       "en": "Cure Coral"
     },
     "rollcall": {
-      "ja": "きらめく宝石"
+      "ja": "きらめく宝石",
+      "en": "Glittering jewels"
     },
     "civilian": {
       "ja": "涼村さんご",
@@ -1770,7 +1838,8 @@
       "en": "Cure Papaya"
     },
     "rollcall": {
-      "ja": "ひらめく果実(フルーツ)"
+      "ja": "ひらめく果実(フルーツ)",
+      "en": "Sparkling fruits"
     },
     "civilian": {
       "ja": "一之瀬みのり",
@@ -1796,7 +1865,8 @@
       "en": "Cure Flamingo"
     },
     "rollcall": {
-      "ja": "はためく翼"
+      "ja": "はためく翼",
+      "en": "Fluttering wings"
     },
     "civilian": {
       "ja": "滝沢あすか",
@@ -1822,7 +1892,8 @@
       "en": "Cure La-mer"
     },
     "rollcall": {
-      "ja": "ゆらめく大海原(オーシャン)"
+      "ja": "ゆらめく大海原(オーシャン)",
+      "en": "Shimmering ocean"
     },
     "civilian": {
       "ja": "ローラ・ラメール",
@@ -1844,7 +1915,8 @@
       "en": "Cure Precious"
     },
     "rollcall": {
-      "ja": "あつあつごはんで、みなぎるパワー"
+      "ja": "あつあつごはんで、みなぎるパワー",
+      "en": "Brimming with energy, from piping hot rice"
     },
     "civilian": {
       "ja": "和実ゆい",
@@ -1874,7 +1946,8 @@
       "en": "Cure Spicy"
     },
     "rollcall": {
-      "ja": "ふわふわサンドde心にスパイス"
+      "ja": "ふわふわサンドde心にスパイス",
+      "en": "With a dainty sandwich, spice for your heart"
     },
     "civilian": {
       "ja": "芙羽ここね",
@@ -1904,7 +1977,8 @@
       "en": "Cure Yum-Yum"
     },
     "rollcall": {
-      "ja": "きらめくヌードル・エモーション"
+      "ja": "きらめくヌードル・エモーション",
+      "en": "Sparkling noodle emotion"
     },
     "civilian": {
       "ja": "華満らん",
@@ -1934,7 +2008,8 @@
       "en": "Cure Finale"
     },
     "rollcall": {
-      "ja": "ジェントルにゴージャスに、咲き誇るスウィートネス"
+      "ja": "ジェントルにゴージャスに、咲き誇るスウィートネス",
+      "en": "Sweetness in full bloom, gently and gorgeously"
     },
     "civilian": {
       "ja": "菓彩あまね",
@@ -1964,7 +2039,8 @@
       "en": "Cure Sky"
     },
     "rollcall": {
-      "ja": "無限にひろがる青い空"
+      "ja": "無限にひろがる青い空",
+      "en": "Blue sky soaring to infinity"
     },
     "civilian": {
       "ja": "ソラ・ハレワタール",
@@ -1994,7 +2070,8 @@
       "en": "Cure Prism"
     },
     "rollcall": {
-      "ja": "ふわりひろがる優しい光"
+      "ja": "ふわりひろがる優しい光",
+      "en": "Gentle light soaring softly"
     },
     "civilian": {
       "ja": "虹ヶ丘ましろ",
@@ -2024,7 +2101,8 @@
       "en": "Cure Wing"
     },
     "rollcall": {
-      "ja": "天高くひろがる勇気"
+      "ja": "天高くひろがる勇気",
+      "en": "Courage soaring high"
     },
     "civilian": {
       "ja": "夕凪ツバサ",
@@ -2054,7 +2132,8 @@
       "en": "Cure Butterfly"
     },
     "rollcall": {
-      "ja": "アゲてひろがるワンダホー"
+      "ja": "アゲてひろがるワンダホー",
+      "en": "Wonderful soaring excitement"
     },
     "civilian": {
       "ja": "聖あげは",
@@ -2076,7 +2155,8 @@
       "en": "Cure Majesty"
     },
     "rollcall": {
-      "ja": "降り立つ気高き神秘"
+      "ja": "降り立つ気高き神秘",
+      "en": "Descend, mystical nobility"
     },
     "civilian": {
       "ja": "エル",
@@ -2098,7 +2178,8 @@
       "en": "Cure Wonderful"
     },
     "rollcall": {
-      "ja": "みんな大好き素敵な世界"
+      "ja": "みんな大好き素敵な世界",
+      "en": "I love everyone in this lovely world!"
     },
     "civilian": {
       "ja": "犬飼こむぎ",
@@ -2120,7 +2201,8 @@
       "en": "Cure Friendy"
     },
     "rollcall": {
-      "ja": "みんなの笑顔で彩る世界"
+      "ja": "みんなの笑顔で彩る世界",
+      "en": "Everyone's smiles light up this world!"
     },
     "civilian": {
       "ja": "犬飼いろは",
@@ -2150,7 +2232,8 @@
       "en": "Cure Nyammy"
     },
     "rollcall": {
-      "ja": "気高くかわいくきらめく世界"
+      "ja": "気高くかわいくきらめく世界",
+      "en": "Noble, cute, and sparkling world!"
     },
     "civilian": {
       "ja": "猫屋敷ユキ",
@@ -2172,7 +2255,8 @@
       "en": "Cure Lillian"
     },
     "rollcall": {
-      "ja": "結んで紡いでつながる世界"
+      "ja": "結んで紡いでつながる世界",
+      "en": "Tie, spin, and weave the world!"
     },
     "civilian": {
       "ja": "猫屋敷まゆ",
@@ -2202,7 +2286,8 @@
       "en": "Cure Idol"
     },
     "rollcall": {
-      "ja": "キミと歌う、ハートのキラキラ！　笑顔ニッコリ、"
+      "ja": "キミと歌う、ハートのキラキラ！　笑顔ニッコリ、",
+      "en": "The kirakira of the heart that sings with you and I! With a big smile,"
     },
     "civilian": {
       "ja": "咲良うた",
@@ -2232,7 +2317,8 @@
       "en": "Cure Wink"
     },
     "rollcall": {
-      "ja": "キミと瞬く、ハートの勇気！　お目目パッチン、"
+      "ja": "キミと瞬く、ハートの勇気！　お目目パッチン、",
+      "en": "The courage of the heart that blinks with you and I! With wide eyes,"
     },
     "civilian": {
       "ja": "蒼風なな",
@@ -2262,7 +2348,8 @@
       "en": "Cure Kyun-Kyun"
     },
     "rollcall": {
-      "ja": "キミと踊る、ハートのリズム！　心キュンキュン、"
+      "ja": "キミと踊る、ハートのリズム！　心キュンキュン、",
+      "en": "The rhythm of the heart that dances with you and I! With a kyun-kyun heart,"
     },
     "civilian": {
       "ja": "紫雨こころ",
@@ -2292,7 +2379,8 @@
       "en": "Cure Zukyoon"
     },
     "rollcall": {
-      "ja": "ハートをプリっとロックオン！　キミとズッキュン、"
+      "ja": "ハートをプリっとロックオン！　キミとズッキュン、",
+      "en": "I'm locked onto your heart! You and I going zukyoon,"
     },
     "civilian": {
       "ja": "田中ぷりん (プリルン)",
@@ -2314,7 +2402,8 @@
       "en": "Cure Kiss"
     },
     "rollcall": {
-      "ja": "ハートをメロっとひとりじめ！　キミと口づけ、"
+      "ja": "ハートをメロっとひとりじめ！　キミと口づけ、",
+      "en": "I'll keep your heart all to myself! With a kiss between you and I,"
     },
     "civilian": {
       "ja": "田中めろん (メロロン)",
@@ -2336,7 +2425,8 @@
       "en": "Cure Answer"
     },
     "rollcall": {
-      "ja": "どんな謎でもはなまる解決！　名探偵"
+      "ja": "どんな謎でもはなまる解決！　名探偵",
+      "en": "Gold-star closing the case on any mystery! Star Detective,"
     },
     "civilian": {
       "ja": "明智あんな",
@@ -2358,7 +2448,8 @@
       "en": "Cure Mystique"
     },
     "rollcall": {
-      "ja": "重ねた推理で笑顔にジャンプ！　名探偵"
+      "ja": "重ねた推理で笑顔にジャンプ！　名探偵",
+      "en": "Jumping towards smiles with layered reasoning! Star Detective,"
     },
     "civilian": {
       "ja": "小林みくる",
@@ -2380,7 +2471,8 @@
       "en": "Cure Eclair"
     },
     "rollcall": {
-      "ja": "解き放て！　内なる真実の香り　名探偵"
+      "ja": "解き放て！　内なる真実の香り　名探偵",
+      "en": "Unleash it! The scent of inner truth. Star Detective,"
     },
     "civilian": {
       "ja": "帆羽くれあ",
@@ -2402,7 +2494,8 @@
       "en": "Cure Arcana Shadow"
     },
     "rollcall": {
-      "ja": "神秘と秘密で包み込む"
+      "ja": "神秘と秘密で包み込む",
+      "en": "Enveloping all in mystery and secrets,"
     },
     "civilian": {
       "ja": "森亜るるか",
