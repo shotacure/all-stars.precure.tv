@@ -92,18 +92,20 @@ async function playQuiz(page, { wrongOnQuestion = -1 } = {}) {
   for (let i = 0; i < 10; i++) {
     await page.waitForFunction(() => document.querySelectorAll('#choices-area .choice').length === 4);
     const bad = await page.evaluate(() => {
+      // 実装と同じ幅計算（全角=1、半角=0.5）で検査する
+      const tw = s => [...s].reduce((a, c) => a + (c.charCodeAt(0) < 0x100 ? 0.5 : 1), 0);
       const out = [];
       document.querySelectorAll('#choices-area .choice').forEach(b => {
-        const len = b.textContent.length;
+        const w = tw(b.textContent);
         const xl = b.classList.contains('choice-xlong');
         const lg = b.classList.contains('choice-long');
-        if (len > 22 && !xl) out.push(`xlong欠落(${len})`);
-        else if (len > 14 && len <= 22 && !lg) out.push(`long欠落(${len})`);
-        else if (len <= 14 && (xl || lg)) out.push(`過剰縮小(${len})`);
+        if (w > 22 && !xl) out.push(`xlong欠落(${w})`);
+        else if (w > 14 && w <= 22 && !lg) out.push(`long欠落(${w})`);
+        else if (w <= 14 && (xl || lg)) out.push(`過剰縮小(${w})`);
         if (b.scrollWidth > b.clientWidth + 1) out.push(`overflow(${b.textContent.slice(0, 10)}…)`);
       });
       const qa = document.getElementById('question-area');
-      if (qa.textContent.length > 24 && !qa.classList.contains('q-long')) out.push('q-long欠落');
+      if (tw(qa.textContent) > 24 && !qa.classList.contains('q-long')) out.push('q-long欠落');
       return out;
     });
     fontIssues.push(...bad);
