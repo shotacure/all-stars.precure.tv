@@ -2376,6 +2376,28 @@
   {
     "series": "2026",
     "transformed": {
+      "ja": "キュアエクレール",
+      "en": "Cure Eclair"
+    },
+    "rollcall": {
+      "ja": "解き放て！　内なる真実の香り　名探偵"
+    },
+    "civilian": {
+      "ja": "帆羽くれあ",
+      "en": "Howa Kurea"
+    },
+    "voice": {
+      "ja": "長谷川育美",
+      "en": "Hasegawa Ikumi"
+    },
+    "birthday": {
+      "ja": "8月10日",
+      "en": "August 10th"
+    }
+  },
+  {
+    "series": "2026",
+    "transformed": {
       "ja": "キュアアルカナ・シャドウ",
       "en": "Cure Arcana Shadow"
     },
