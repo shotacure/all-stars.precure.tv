@@ -250,6 +250,16 @@ async function playQuiz(page, { wrongOnQuestion = -1 } = {}) {
   const rankEn = await page.$eval('#timer-rank', el => el.textContent);
   check('英語のペース順位表示', /Pace #\d+/.test(rankEn), rankEn);
 
+  // 英語モードでは口上が英語（rollcall.en）で解決される
+  const enRollcall = await page.evaluate(() => ({
+    lang: currentLang,
+    black: v(quizData.find(e => e.transformed.ja === 'キュアブラック'), 'rollcall'),
+    allHaveEn: quizData.every(e => e.rollcall && e.rollcall.en),
+  }));
+  check('英語モードで口上が英訳で解決される', enRollcall.lang === 'en' && enRollcall.black === 'Emissary of light',
+    JSON.stringify(enRollcall.black));
+  check('全93名に rollcall.en がある', enRollcall.allHaveEn);
+
   // --- シナリオ5.5: アーカイブ（過去ランキング）ページと導線 ---
   await page.goto(BASE);
   await page.waitForFunction(() => !document.getElementById('leaderboard-area').classList.contains('hidden'));
