@@ -1312,7 +1312,7 @@ function showQuestion() {
   const qArea = $('question-area');
   qArea.textContent = q.question;
   // 長文（名乗り口上など）は少し縮小してレイアウト崩れを防ぐ
-  qArea.classList.toggle('q-long', q.question.length > 24);
+  qArea.classList.toggle('q-long', textWidth(q.question) > 24);
 
   const area = $('choices-area');
   area.innerHTML = '';
@@ -1326,10 +1326,21 @@ function showQuestion() {
   });
 }
 
-// 文字数に応じた縮小クラス（長い名乗り口上対策）
+// 表示幅ベースの実効文字数（全角=1、半角=0.5）
+// 英語の口上は文字数こそ多いが半角なので、単純な length だと過剰に縮小される
+function textWidth(text) {
+  let w = 0;
+  for (const ch of text) {
+    w += (ch.charCodeAt(0) < 0x100) ? 0.5 : 1;
+  }
+  return w;
+}
+
+// 表示幅に応じた縮小クラス（長い名乗り口上対策。閾値は全角換算）
 function textSizeClass(text) {
-  if (text.length > 22) return ' choice-xlong';
-  if (text.length > 14) return ' choice-long';
+  const w = textWidth(text);
+  if (w > 22) return ' choice-xlong';
+  if (w > 14) return ' choice-long';
   return '';
 }
 
