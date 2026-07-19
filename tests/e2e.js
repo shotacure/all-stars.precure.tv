@@ -288,6 +288,20 @@ async function playQuiz(page, { wrongOnQuestion = -1 } = {}) {
   }));
   check('アーカイブページ：ティア描画と戻り導線', arch.rows === 5 && arch.medal && arch.back === '../', JSON.stringify(arch));
 
+  // --- シナリオ5.8: 出題中の言語切替でランキングが出ない ---
+  await page.goto(BASE);
+  await page.click('#start-btn');
+  await page.waitForFunction(() => typeof questions !== 'undefined' && questions.length === 10);
+  await page.evaluate(() => loadLanguage('en'));
+  await page.waitForTimeout(400);
+  check('出題中に言語切替してもランキングは隠れたまま',
+    await page.$eval('#leaderboard-area', el => el.classList.contains('hidden')));
+  // 完走すると結果画面では従来どおり表示される
+  await playQuiz(page);
+  check('結果画面ではランキング表示（回帰）',
+    !(await page.$eval('#leaderboard-area', el => el.classList.contains('hidden'))));
+  await page.evaluate(() => { localStorage.clear(); }); // 英語PBを後続に持ち越さない
+
   // --- シナリオ6: iモード（?i）で演出・自己ベスト非表示 ---
   await page.goto(BASE + '?i');
   await page.waitForTimeout(800);

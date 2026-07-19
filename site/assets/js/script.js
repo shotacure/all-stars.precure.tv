@@ -541,6 +541,15 @@ function renderLeaderboard() {
   const list = $('leaderboard-list');
   if (!area || !list) return;
 
+  // 出題中は表示しない（表示するのはホームと結果画面のみ）
+  // 言語切替などで再描画が走っても、隠れている状態を維持する
+  const onHome = !$('start-btn').classList.contains('hidden');
+  const onResult = $('result-area').innerHTML.trim() !== '';
+  if (!onHome && !onResult) {
+    area.classList.add('hidden');
+    return;
+  }
+
   // ランキングが空でも枠は表示する（v2仕切り直し直後・アーカイブへの導線維持）
   if (!leaderboard.length) {
     area.classList.remove('hidden');
