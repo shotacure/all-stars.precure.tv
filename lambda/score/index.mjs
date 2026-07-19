@@ -248,6 +248,26 @@ function rankEntry(a, b) {
 }
 
 /**
+ * 過去バージョンの盤面で承認済みの名前かどうか
+ * 記録の仕切り直し（RECORDS_VERSION更新）後も、以前のランキングに
+ * 掲載されていた名前は信頼済みとして扱い、再承認を不要にする
+ * @param {string} name - 判定する名前
+ * @returns {Promise<boolean>} 過去盤面に存在すれば true
+ */
+async function isNameApprovedBefore(name) {
+  const current = parseInt(RECORDS_VERSION, 10) || 1;
+  for (let v = current - 1; v >= 1; v--) {
+    const pk = v === 1 ? "leaderboard" : `leaderboard#v${v}`;
+    const res = await ddb.send(
+      new GetCommand({ TableName: TABLE_NAME, Key: { pk } })
+    );
+    const entries = res.Item?.entries || res.Item?.top20 || [];
+    if (entries.some((e) => e.name === name)) return true;
+  }
+  return false;
+}
+
+/**
  * API Gateway HTTP API の event オブジェクトからクライアント情報を抽出
  * 荒らし対策の監査ログ・管理者通知・ISPログ照会に使用
  * @param {object} event - API Gateway イベントオブジェクト
@@ -706,7 +726,9 @@ export const handler = async (event) => {
 
   // 8. 自動承認判定：送信された名前がランキング上の既存名と完全一致するか
   //    既にランキングに掲載されている名前は信頼済みとみなし、承認をスキップする
-  const isKnownName = entries.some((e) => e.name === name);
+  //    現行盤面に加え、過去バージョンの盤面（仕切り直し前）で承認済みの名前も信頼する
+  const isKnownName =
+    entries.some((e) => e.name === name) || (await isNameApprovedBefore(name));
 
   if (isKnownName) {
     // --- 自動承認フロー ---
