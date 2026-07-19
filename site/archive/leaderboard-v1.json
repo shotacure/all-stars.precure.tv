@@ -1,5 +1,711 @@
 {
-  "note": "v1（〜2026/07/18）の最終ランキング。7/19 の切替時に tools/cutover-v2.ps1 が実データで上書きする",
-  "updatedAt": null,
-  "entries": []
+  "updatedAt": "2026-07-18T21:25:31.171Z",
+  "entries": [
+    {
+      "name": "油まみれ",
+      "totalTimeCs": 847,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-08T06:47:10.439Z"
+    },
+    {
+      "name": "コメ",
+      "totalTimeCs": 950,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-06T15:49:54.628Z"
+    },
+    {
+      "name": "ポカリスエット",
+      "resultBinary": "",
+      "totalTimeCs": 984,
+      "correct": 10,
+      "timestamp": "2026-04-01T03:40:18.885Z"
+    },
+    {
+      "name": "きゅーふん",
+      "totalTimeCs": 1089,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-08T04:50:54.655Z"
+    },
+    {
+      "name": "キュアアンサー",
+      "resultBinary": "",
+      "totalTimeCs": 1104,
+      "correct": 10,
+      "timestamp": "2026-03-19T08:53:15.237Z"
+    },
+    {
+      "name": "あんじゅ。",
+      "totalTimeCs": 1106,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-05T00:59:41.876Z"
+    },
+    {
+      "name": "いななき",
+      "totalTimeCs": 1144,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-16T14:42:25.348Z"
+    },
+    {
+      "name": "サファイア",
+      "totalTimeCs": 1149,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-06T14:22:13.099Z"
+    },
+    {
+      "totalTimeCs": 1162,
+      "correct": 10,
+      "name": "黒板消し",
+      "resultBinary": "",
+      "pk": "pending:mnj1m21zdfe74959",
+      "ttl": 1777821169,
+      "timestamp": "2026-04-03T15:12:49.895Z"
+    },
+    {
+      "name": "mao",
+      "totalTimeCs": 1164,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-03T04:21:31.065Z"
+    },
+    {
+      "name": "りとるぶたー",
+      "resultBinary": "",
+      "totalTimeCs": 1177,
+      "correct": 10,
+      "timestamp": "2026-03-31T15:18:52.878Z"
+    },
+    {
+      "totalTimeCs": 1179,
+      "correct": 10,
+      "name": "ヒメルダスキー",
+      "resultBinary": "",
+      "pk": "pending:mnj1tmjf22cf1f93",
+      "ttl": 1777821523,
+      "timestamp": "2026-04-03T15:18:43.035Z"
+    },
+    {
+      "name": "スイミ",
+      "totalTimeCs": 1190,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-05-11T14:12:07.551Z"
+    },
+    {
+      "name": "なこ",
+      "totalTimeCs": 1237,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-22T08:22:09.732Z"
+    },
+    {
+      "name": "祥太",
+      "resultBinary": "",
+      "totalTimeCs": 1269,
+      "correct": 10,
+      "timestamp": "2026-03-19T05:03:34.068Z"
+    },
+    {
+      "name": "高田",
+      "totalTimeCs": 1270,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-02T07:20:24.471Z"
+    },
+    {
+      "name": "愛 悠美",
+      "totalTimeCs": 1276,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-07T10:34:50.916Z"
+    },
+    {
+      "name": "Kazkaz",
+      "totalTimeCs": 1281,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-05-24T03:24:43.117Z"
+    },
+    {
+      "name": "トロピカる部員",
+      "totalTimeCs": 1288,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-03T20:01:10.679Z"
+    },
+    {
+      "name": "ge",
+      "totalTimeCs": 1303,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-23T01:20:58.858Z"
+    },
+    {
+      "name": "みゃんみ",
+      "totalTimeCs": 1311,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-03T20:24:34.582Z"
+    },
+    {
+      "name": "あきやん",
+      "totalTimeCs": 1312,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-06-17T22:04:37.468Z"
+    },
+    {
+      "name": "あかり",
+      "totalTimeCs": 1315,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-08T10:39:47.260Z"
+    },
+    {
+      "name": "なぎさや",
+      "totalTimeCs": 1330,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-02T05:35:36.900Z"
+    },
+    {
+      "name": "4",
+      "resultBinary": "",
+      "totalTimeCs": 1360,
+      "correct": 10,
+      "timestamp": "2026-03-19T06:06:08.575Z"
+    },
+    {
+      "name": "空棘",
+      "totalTimeCs": 1386,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-26T08:55:26.223Z"
+    },
+    {
+      "name": "やるっしゅ",
+      "totalTimeCs": 1390,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-05-14T13:02:27.199Z"
+    },
+    {
+      "totalTimeCs": 1407,
+      "correct": 10,
+      "name": "星奈",
+      "resultBinary": "",
+      "pk": "pending:mni4hvth950b6327",
+      "ttl": 1777765547,
+      "timestamp": "2026-04-02T23:45:47.861Z"
+    },
+    {
+      "name": "よーいち",
+      "totalTimeCs": 1414,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-04T02:08:43.100Z"
+    },
+    {
+      "name": "ナッツ",
+      "totalTimeCs": 1422,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-06-14T02:14:35.119Z"
+    },
+    {
+      "name": "びよーん",
+      "totalTimeCs": 1427,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-13T13:36:37.590Z"
+    },
+    {
+      "name": "えりぃぜ？",
+      "totalTimeCs": 1439,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-06-01T06:22:52.773Z"
+    },
+    {
+      "name": "あまみゃ",
+      "totalTimeCs": 1452,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-05-01T09:31:34.836Z"
+    },
+    {
+      "name": "桜",
+      "totalTimeCs": 1457,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-08T10:31:35.900Z"
+    },
+    {
+      "name": "さよ",
+      "totalTimeCs": 1462,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-23T03:46:45.351Z"
+    },
+    {
+      "name": "KKKKKKK",
+      "totalTimeCs": 1468,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-13T14:19:55.737Z"
+    },
+    {
+      "name": "なっちゃん",
+      "totalTimeCs": 1482,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-06-14T02:07:47.635Z"
+    },
+    {
+      "name": "タナカリオン",
+      "totalTimeCs": 1486,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-06T17:45:02.422Z"
+    },
+    {
+      "name": "翠里",
+      "totalTimeCs": 1494,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-22T07:59:17.531Z"
+    },
+    {
+      "name": "あずぼー",
+      "totalTimeCs": 1495,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-10T14:04:12.694Z"
+    },
+    {
+      "name": "パフ",
+      "resultBinary": "",
+      "totalTimeCs": 1511,
+      "correct": 10,
+      "timestamp": "2026-04-02T06:42:22.454Z"
+    },
+    {
+      "name": "Suzette",
+      "totalTimeCs": 1538,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-05-08T23:21:43.320Z"
+    },
+    {
+      "name": "kasasagi",
+      "totalTimeCs": 1570,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-13T13:34:13.089Z"
+    },
+    {
+      "name": "ヱス",
+      "totalTimeCs": 1577,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-06T09:14:06.778Z"
+    },
+    {
+      "name": "きりはら",
+      "totalTimeCs": 1597,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-15T17:00:49.442Z"
+    },
+    {
+      "name": "むねみつ",
+      "totalTimeCs": 1599,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-16T08:12:55.016Z"
+    },
+    {
+      "name": "リンゴ",
+      "totalTimeCs": 1602,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-05-16T09:47:54.249Z"
+    },
+    {
+      "name": "粋",
+      "totalTimeCs": 1603,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-22T08:01:39.969Z"
+    },
+    {
+      "name": "不服",
+      "totalTimeCs": 1605,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-22T08:14:35.984Z"
+    },
+    {
+      "name": "たかだ",
+      "totalTimeCs": 1611,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-02T07:17:57.609Z"
+    },
+    {
+      "name": "セイレーン",
+      "totalTimeCs": 1613,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-08T10:46:03.734Z"
+    },
+    {
+      "name": "モッチリンヌ",
+      "totalTimeCs": 1621,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-08T08:11:16.264Z"
+    },
+    {
+      "name": "ののは",
+      "totalTimeCs": 1624,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-04T09:36:59.442Z"
+    },
+    {
+      "name": "月欠",
+      "totalTimeCs": 1624,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-11T15:03:46.916Z"
+    },
+    {
+      "name": "クローズ",
+      "resultBinary": "",
+      "totalTimeCs": 1659,
+      "correct": 10,
+      "timestamp": "2026-04-02T11:06:26.038Z"
+    },
+    {
+      "name": "らしゆか",
+      "totalTimeCs": 1662,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-05-12T04:57:57.465Z"
+    },
+    {
+      "name": "ニセ消しごむ",
+      "resultBinary": "",
+      "totalTimeCs": 1671,
+      "correct": 10,
+      "timestamp": "2026-04-02T13:28:17.459Z"
+    },
+    {
+      "name": "シャドー・イツカ(ミッドナイト)",
+      "totalTimeCs": 1676,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-05-07T02:47:18.306Z"
+    },
+    {
+      "name": "ねこお",
+      "totalTimeCs": 1707,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-12T03:42:18.725Z"
+    },
+    {
+      "name": "伊勢海老れいる",
+      "totalTimeCs": 1716,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-05-01T12:26:09.090Z"
+    },
+    {
+      "name": "村田敬三郎",
+      "totalTimeCs": 1720,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-06-28T18:03:23.289Z"
+    },
+    {
+      "name": "さく",
+      "totalTimeCs": 1728,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-05-31T06:49:55.638Z"
+    },
+    {
+      "name": "ラムネ",
+      "totalTimeCs": 1734,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-05-31T01:51:32.987Z"
+    },
+    {
+      "name": "Amea",
+      "totalTimeCs": 1741,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-13T13:38:02.832Z"
+    },
+    {
+      "name": "キュアカイシャイン",
+      "totalTimeCs": 1745,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-05-30T11:59:27.402Z"
+    },
+    {
+      "name": "こうき",
+      "totalTimeCs": 1746,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-05T11:24:21.301Z"
+    },
+    {
+      "name": "ほたるいか",
+      "totalTimeCs": 1755,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-12T05:33:22.776Z"
+    },
+    {
+      "name": "さゆきち",
+      "totalTimeCs": 1759,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-05T02:21:55.068Z"
+    },
+    {
+      "name": "渚",
+      "totalTimeCs": 1821,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-08T10:24:42.795Z"
+    },
+    {
+      "name": "Haヤ10",
+      "totalTimeCs": 1825,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-06-14T02:22:17.561Z"
+    },
+    {
+      "name": "陸花",
+      "totalTimeCs": 1834,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-05-11T15:33:57.116Z"
+    },
+    {
+      "name": "ゆんゆ",
+      "totalTimeCs": 1846,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-15T14:27:02.132Z"
+    },
+    {
+      "name": "ごはん",
+      "totalTimeCs": 1849,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-18T03:15:36.817Z"
+    },
+    {
+      "name": "チロル",
+      "totalTimeCs": 1854,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-06-09T09:28:45.747Z"
+    },
+    {
+      "name": "シン・イナズマン",
+      "totalTimeCs": 1883,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-05-24T05:11:17.041Z"
+    },
+    {
+      "name": "地球",
+      "totalTimeCs": 1907,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-05-21T09:11:26.535Z"
+    },
+    {
+      "name": "えんそ",
+      "totalTimeCs": 1914,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-06-13T14:10:16.065Z"
+    },
+    {
+      "name": "秋桜",
+      "totalTimeCs": 1946,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-05-26T02:25:24.907Z"
+    },
+    {
+      "name": "ミャクミャク",
+      "totalTimeCs": 1956,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-08T10:41:21.459Z"
+    },
+    {
+      "name": "にちりん",
+      "totalTimeCs": 1966,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-05T04:00:14.978Z"
+    },
+    {
+      "name": "キュアホゲ",
+      "totalTimeCs": 1976,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-19T07:19:46.509Z"
+    },
+    {
+      "name": "ちゅばしゃ",
+      "totalTimeCs": 1977,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-05-21T10:30:15.866Z"
+    },
+    {
+      "name": "調辺アコ",
+      "totalTimeCs": 1986,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-06-14T11:03:45.093Z"
+    },
+    {
+      "name": "さんかく",
+      "totalTimeCs": 1988,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-06-14T05:38:44.165Z"
+    },
+    {
+      "name": "あんな",
+      "totalTimeCs": 1993,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-06T12:15:40.979Z"
+    },
+    {
+      "name": "みあや",
+      "totalTimeCs": 2007,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-06T09:14:30.320Z"
+    },
+    {
+      "name": "しゃぼん玉",
+      "totalTimeCs": 2034,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-27T14:43:41.490Z"
+    },
+    {
+      "name": "みるきーず",
+      "totalTimeCs": 2034,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-05-04T05:49:33.459Z"
+    },
+    {
+      "name": "小林拓也",
+      "totalTimeCs": 2071,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-23T12:37:42.420Z"
+    },
+    {
+      "name": "ヨッシー",
+      "totalTimeCs": 2108,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-06T06:08:48.523Z"
+    },
+    {
+      "name": "ふりる",
+      "totalTimeCs": 2120,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-04T09:04:03.704Z"
+    },
+    {
+      "name": "彩世",
+      "totalTimeCs": 2122,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-18T21:24:49.115Z"
+    },
+    {
+      "name": "すけ",
+      "totalTimeCs": 2126,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-19T02:24:03.144Z"
+    },
+    {
+      "name": "ひより",
+      "totalTimeCs": 2138,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-05-31T06:29:39.425Z"
+    },
+    {
+      "name": "プリオタ",
+      "totalTimeCs": 2138,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-06-28T17:59:02.607Z"
+    },
+    {
+      "name": "おがめ",
+      "totalTimeCs": 2149,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-22T04:08:40.626Z"
+    },
+    {
+      "name": "あ",
+      "totalTimeCs": 2151,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-05-26T08:16:14.539Z"
+    },
+    {
+      "name": "うるすら",
+      "totalTimeCs": 2182,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-04-07T07:56:25.367Z"
+    },
+    {
+      "name": "小林みくる・キュアミスティック",
+      "totalTimeCs": 2184,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-06-27T08:29:20.506Z"
+    },
+    {
+      "name": "RI",
+      "totalTimeCs": 2193,
+      "resultBinary": "",
+      "correct": 10,
+      "timestamp": "2026-07-02T00:47:39.194Z"
+    }
+  ]
 }
