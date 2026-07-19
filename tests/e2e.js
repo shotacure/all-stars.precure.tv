@@ -92,18 +92,20 @@ async function playQuiz(page, { wrongOnQuestion = -1 } = {}) {
   for (let i = 0; i < 10; i++) {
     await page.waitForFunction(() => document.querySelectorAll('#choices-area .choice').length === 4);
     const bad = await page.evaluate(() => {
+      // 実装と同じ幅計算（全角=1、半角=0.5）で検査する
+      const tw = s => [...s].reduce((a, c) => a + (c.charCodeAt(0) < 0x100 ? 0.5 : 1), 0);
       const out = [];
       document.querySelectorAll('#choices-area .choice').forEach(b => {
-        const len = b.textContent.length;
+        const w = tw(b.textContent);
         const xl = b.classList.contains('choice-xlong');
         const lg = b.classList.contains('choice-long');
-        if (len > 22 && !xl) out.push(`xlong欠落(${len})`);
-        else if (len > 14 && len <= 22 && !lg) out.push(`long欠落(${len})`);
-        else if (len <= 14 && (xl || lg)) out.push(`過剰縮小(${len})`);
+        if (w > 22 && !xl) out.push(`xlong欠落(${w})`);
+        else if (w > 14 && w <= 22 && !lg) out.push(`long欠落(${w})`);
+        else if (w <= 14 && (xl || lg)) out.push(`過剰縮小(${w})`);
         if (b.scrollWidth > b.clientWidth + 1) out.push(`overflow(${b.textContent.slice(0, 10)}…)`);
       });
       const qa = document.getElementById('question-area');
-      if (qa.textContent.length > 24 && !qa.classList.contains('q-long')) out.push('q-long欠落');
+      if (tw(qa.textContent) > 24 && !qa.classList.contains('q-long')) out.push('q-long欠落');
       return out;
     });
     fontIssues.push(...bad);
@@ -247,6 +249,16 @@ async function playQuiz(page, { wrongOnQuestion = -1 } = {}) {
   await page.waitForFunction(() => typeof elapsedTime !== 'undefined' && elapsedTime > 100);
   const rankEn = await page.$eval('#timer-rank', el => el.textContent);
   check('英語のペース順位表示', /Pace #\d+/.test(rankEn), rankEn);
+
+  // 英語モードでは口上が英語（rollcall.en）で解決される
+  const enRollcall = await page.evaluate(() => ({
+    lang: currentLang,
+    black: v(quizData.find(e => e.transformed.ja === 'キュアブラック'), 'rollcall'),
+    allHaveEn: quizData.every(e => e.rollcall && e.rollcall.en),
+  }));
+  check('英語モードで口上が英訳で解決される', enRollcall.lang === 'en' && enRollcall.black === 'Emissary of light',
+    JSON.stringify(enRollcall.black));
+  check('全93名に rollcall.en がある', enRollcall.allHaveEn);
 
   // --- シナリオ5.5: アーカイブ（過去ランキング）ページと導線 ---
   await page.goto(BASE);
