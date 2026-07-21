@@ -41,6 +41,12 @@ const MAX_TOTAL_TIME_CS = 65535;
 const AUDIT_TTL_SECONDS = 30 * 24 * 60 * 60;
 // 承認待ちエントリの DynamoDB TTL（秒）：30日間保持、超過分は自動削除
 const PENDING_TTL_SECONDS = 30 * 24 * 60 * 60;
+// 荒らし検知：類似IP（同一サブネット）・同一UA からの投稿を監視する時間窓（時間）
+const SUSPICIOUS_WINDOW_HOURS = 24;
+// 上記の時間窓内で同一端末から使われた "異なる名前" の数がこの値以上なら
+// 名前を変えた連投（自演）の疑いとして管理者メールで警告する
+// （同一名義での複数回送信は正当な再挑戦とみなし警告しない）
+const SUSPICIOUS_THRESHOLD = 2;
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const s3 = new S3Client({});
@@ -303,12 +309,146 @@ function extractClientInfo(event) {
 }
 
 /**
+ * IPv6 アドレスを 8 グループの正規化済み配列に展開する
+ * "::" の省略を補い、各グループを 4 桁小文字ゼロ埋めにする
+ * ゾーンID(%eth0)や埋め込みIPv4など解析不能な形式は null を返す
+ * @param {string} addr - IPv6 文字列
+ * @returns {string[]|null} 8 要素の hextet 配列、または null
+ */
+function expandIpv6(addr) {
+  const clean = addr.split("%")[0];
+  // 埋め込みIPv4（::ffff:1.2.3.4 等）は簡易判定の対象外
+  if (clean.includes(".")) return null;
+  const halves = clean.split("::");
+  if (halves.length > 2) return null;
+  const head = halves[0] ? halves[0].split(":") : [];
+  const tail = halves.length === 2 ? (halves[1] ? halves[1].split(":") : []) : null;
+
+  let groups;
+  if (tail === null) {
+    // "::" なし → 省略なしの完全表記のはず
+    groups = head;
+  } else {
+    const missing = 8 - head.length - tail.length;
+    if (missing < 0) return null;
+    groups = [...head, ...Array(missing).fill("0"), ...tail];
+  }
+  if (groups.length !== 8) return null;
+
+  const normalized = [];
+  for (const g of groups) {
+    if (!/^[0-9a-fA-F]{1,4}$/.test(g)) return null;
+    normalized.push(g.toLowerCase().padStart(4, "0"));
+  }
+  return normalized;
+}
+
+/**
+ * IPアドレスからサブネット単位のキーと表示ラベルを求める（類似IP判定用）
+ * - IPv4: 先頭3オクテット（/24）を同一とみなす
+ * - IPv6: 先頭4グループ（/64）を同一とみなす
+ * 解析不能な場合は null（→ 検知対象外として誤検知を避ける）
+ * @param {string} ip - IPアドレス文字列
+ * @returns {{key: string, label: string}|null}
+ */
+function ipSubnet(ip) {
+  if (typeof ip !== "string") return null;
+  const addr = ip.trim().split("%")[0];
+  if (addr === "") return null;
+
+  if (addr.includes(":")) {
+    const groups = expandIpv6(addr);
+    if (!groups) return null;
+    const prefix = groups.slice(0, 4).join(":");
+    return { key: `v6:${prefix}`, label: `${prefix}::/64` };
+  }
+
+  const octets = addr.split(".");
+  if (octets.length !== 4) return null;
+  for (const o of octets) {
+    if (!/^\d{1,3}$/.test(o) || Number(o) > 255) return null;
+  }
+  const prefix = octets.slice(0, 3).join(".");
+  return { key: `v4:${prefix}`, label: `${prefix}.0/24` };
+}
+
+/**
+ * ISO 文字列を JST の読みやすい表記に変換
+ */
+function toJst(iso) {
+  if (!iso) return "(不明)";
+  try {
+    return new Date(iso).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+  } catch {
+    return String(iso);
+  }
+}
+
+/**
+ * 監査ログから「類似IP・同一UAで直近24時間に "別名を使い分けて" 複数回送信」を検知する
+ * 今回の送信も監査ログに含まれている前提で、同一サブネット(/24 or /64)かつ
+ * 同一 User-Agent の送信を集計し、その中に含まれる "異なる名前の数" で判定する。
+ * 同一名義での複数回送信（記録更新など正当な再挑戦）は検知対象外。
+ * IP/UA が判定不能な場合は誤検知を避けて flagged=false を返す。
+ * @param {object} clientInfo - 今回のクライアント情報
+ * @param {Array} auditLogs - 監査ログ（今回分を含む）
+ * @returns {{flagged: boolean, nameCount: number, submissionCount: number, windowHours: number, subnetLabel: string|null, userAgent: string|null, names: string[], matches: Array}}
+ */
+function detectRepeatedHighScores(clientInfo, auditLogs) {
+  const ua = clientInfo?.userAgent || null;
+  const subnet = ipSubnet(clientInfo?.sourceIp);
+  const result = {
+    flagged: false,
+    nameCount: 0,
+    submissionCount: 0,
+    windowHours: SUSPICIOUS_WINDOW_HOURS,
+    subnetLabel: subnet?.label || null,
+    userAgent: ua,
+    names: [],
+    matches: [],
+  };
+
+  // IP または UA が判定できない場合は検知しない（誤検知防止）
+  if (!Array.isArray(auditLogs) || !subnet || !ua) return result;
+
+  const cutoff = new Date(
+    Date.now() - SUSPICIOUS_WINDOW_HOURS * 60 * 60 * 1000
+  ).toISOString();
+
+  const matches = auditLogs
+    .filter((e) => {
+      if (!e || !e.submittedAt || e.submittedAt < cutoff) return false;
+      if ((e.clientInfo?.userAgent || null) !== ua) return false;
+      const s = ipSubnet(e.clientInfo?.sourceIp);
+      return s !== null && s.key === subnet.key;
+    })
+    .slice()
+    .sort((a, b) => (a.submittedAt < b.submittedAt ? 1 : -1)); // 新しい順
+
+  // 同一端末（類似IP＋同一UA）から使われた "異なる名前" を集計
+  const uniqueNames = [...new Set(matches.map((e) => e.name).filter(Boolean))];
+
+  result.submissionCount = matches.length;
+  result.nameCount = uniqueNames.length;
+  result.names = uniqueNames;
+  result.matches = matches.map((e) => ({
+    name: e.name || null,
+    submittedAt: e.submittedAt,
+    sourceIp: e.clientInfo?.sourceIp || null,
+  }));
+  // 別名を使い分けて複数投稿している場合のみ警告（同一名義の連投は許容）
+  result.flagged = result.nameCount >= SUSPICIOUS_THRESHOLD;
+  return result;
+}
+
+/**
  * 監査ログを単一レコード（pk: "audits"）の配列に追記
  * - 30 日を超えた古いエントリは書き込み時に自動除去
  * - 最大 100 件まで保持（超過分は古い順に削除）
  * - 楽観的ロックで同時書き込みの競合を防止
  * @param {string} nonce - セッショントークンの nonce（一意キー）
  * @param {object} details - 記録する詳細情報
+ * @returns {Promise<Array|null>} 追記後の監査ログ配列（今回分を含む）、失敗時は null
  */
 async function writeAuditLog(nonce, details) {
   try {
@@ -340,9 +480,12 @@ async function writeAuditLog(nonce, details) {
         ExpressionAttributeValues: { ":v": version },
       })
     );
+
+    return capped;
   } catch (err) {
     // 監査ログの書き込み失敗はスコア送信自体をブロックしない
     console.error("Failed to write audit log:", err);
+    return null;
   }
 }
 
@@ -420,10 +563,44 @@ function generateAdminSignature(action, name) {
  * @param {string} rejectUrl - 却下用 URL（自動承認時は空文字）
  * @param {object} options - オプション
  * @param {boolean} options.autoApproved - 自動承認済みの場合 true
+ * @param {object} options.suspicious - 連投検知の結果（flagged 時にメール冒頭へ警告を表示）
  * @returns {string} HTML 文字列
  */
 function buildNotificationHtml(entry, clientInfo, rankEntries, approveUrl, rejectUrl, options = {}) {
   const timeStr = (entry.totalTimeCs / 100).toFixed(2);
+
+  // 連投検知の警告バナー（メール最上部・スマホで開いてすぐ気付けるよう最優先で表示）
+  const suspicious = options.suspicious;
+  const suspiciousBanner = suspicious && suspicious.flagged
+    ? `<div style="background:#dc3545;color:#ffffff;padding:16px 18px;border-radius:8px;border:3px solid #a71d2a;margin-bottom:20px;">
+  <div style="font-size:20px;font-weight:bold;line-height:1.4;">
+    🚨 自演の疑い：同一端末が ${suspicious.windowHours} 時間以内に <span style="font-size:24px;">${suspicious.nameCount}</span> 種類の名前で送信
+  </div>
+  <div style="font-size:14px;line-height:1.7;margin-top:8px;">
+    類似IP（サブネット <strong>${escapeHtml(suspicious.subnetLabel || "(不明)")}</strong>）・同一 User-Agent から、
+    直近 ${suspicious.windowHours} 時間で <strong>${suspicious.nameCount}</strong> 種類の名前
+    （計 ${suspicious.submissionCount} 回）のハイスコア送信を検知しました。
+    名前を変えた連投・自演の可能性があるため、掲載前にご確認ください。
+  </div>
+  ${suspicious.matches.length
+        ? `<table style="border-collapse:collapse;width:100%;margin-top:12px;background:#ffffff;color:#333;border-radius:6px;overflow:hidden;font-size:13px;">
+    <tr style="background:#f5c2c7;">
+      <th style="padding:5px 8px;text-align:left;">名前</th>
+      <th style="padding:5px 8px;text-align:left;">送信日時(JST)</th>
+      <th style="padding:5px 8px;text-align:left;">IP</th>
+    </tr>
+    ${suspicious.matches
+          .map(
+            (m) =>
+              `<tr><td style="padding:5px 8px;">${escapeHtml(m.name || "(不明)")}</td>` +
+              `<td style="padding:5px 8px;white-space:nowrap;">${escapeHtml(toJst(m.submittedAt))}</td>` +
+              `<td style="padding:5px 8px;font-family:monospace;">${escapeHtml(m.sourceIp || "(不明)")}</td></tr>`
+          )
+          .join("")}
+  </table>`
+        : ""}
+</div>`
+    : "";
 
   // ISP照会用：リクエスト日時をJSTに変換
   const requestJst = clientInfo.requestTimeEpoch
@@ -509,6 +686,8 @@ function buildNotificationHtml(entry, clientInfo, rankEntries, approveUrl, rejec
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
 <body style="font-family:-apple-system,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333;">
+
+${suspiciousBanner}
 
 <h2 style="color:#e91e8c;border-bottom:2px solid #e91e8c;padding-bottom:8px;">
   ${headingText}
@@ -597,15 +776,21 @@ function escapeHtml(str) {
  * @param {string} rejectUrl - 却下用 URL（自動承認時は空文字）
  * @param {object} options - オプション
  * @param {boolean} options.autoApproved - 自動承認済みの場合 true
+ * @param {object} options.suspicious - 連投検知の結果（flagged 時は件名にも警告を付与）
  */
 async function sendAdminNotification(entry, clientInfo, rankEntries, approveUrl, rejectUrl, options = {}) {
   if (!ADMIN_EMAIL || !SENDER_EMAIL) return;
 
   const timeStr = (entry.totalTimeCs / 100).toFixed(2);
+  // 自演検知時は件名の先頭に警告を付ける（スマホのGmail一覧で開かずに気付けるように）
+  const warnPrefix =
+    options.suspicious && options.suspicious.flagged
+      ? `🚨要確認(${options.suspicious.windowHours}h内 別名${options.suspicious.nameCount}件) `
+      : "";
   // 自動承認時と承認待ち時でメール件名を分ける
   const subject = options.autoApproved
-    ? `[いえるかなクイズ] 自動承認: ${entry.name} (${timeStr}s)`
-    : `[いえるかなクイズ] 承認待ち: ${entry.name} (${timeStr}s)`;
+    ? `${warnPrefix}[いえるかなクイズ] 自動承認: ${entry.name} (${timeStr}s)`
+    : `${warnPrefix}[いえるかなクイズ] 承認待ち: ${entry.name} (${timeStr}s)`;
   const htmlBody = buildNotificationHtml(entry, clientInfo, rankEntries, approveUrl, rejectUrl, options);
 
   try {
@@ -668,7 +853,7 @@ export const handler = async (event) => {
   }
 
   // 5. 監査ログを書き込み（ランクイン有無にかかわらず全送信を記録）
-  await writeAuditLog(tokenResult.nonce, {
+  const auditLogs = await writeAuditLog(tokenResult.nonce, {
     name,
     correct,
     totalTimeCs,
@@ -676,6 +861,10 @@ export const handler = async (event) => {
     clientInfo,
     submittedAt: new Date().toISOString(),
   });
+
+  // 5b. 連投検知：類似IP（同一サブネット）・同一UAで直近24時間に複数回送信があれば
+  //     管理者通知メールの件名・冒頭に警告を出す
+  const suspicious = detectRepeatedHighScores(clientInfo, auditLogs);
 
   // 6. 現在のランキングを DynamoDB から読み込み
   const getResult = await ddb.send(
@@ -777,7 +966,7 @@ export const handler = async (event) => {
         ? { ...e, _autoApproved: true }
         : e
     );
-    await sendAdminNotification(newEntry, clientInfo, emailEntries, "", "", { autoApproved: true });
+    await sendAdminNotification(newEntry, clientInfo, emailEntries, "", "", { autoApproved: true, suspicious });
 
     // 8d. 自動承認済みの更新後ランキングをフロントエンドに返す
     return response(200, {
@@ -821,7 +1010,7 @@ export const handler = async (event) => {
   // メール表示用：承認済みランキングに今回の承認待ちエントリを暫定マージ
   const emailEntries = [...entriesWithoutSameName, { ...newEntry, _pending: true }].sort(rankEntry).slice(0, TOP_N);
 
-  await sendAdminNotification(newEntry, clientInfo, emailEntries, approveUrl, rejectUrl);
+  await sendAdminNotification(newEntry, clientInfo, emailEntries, approveUrl, rejectUrl, { suspicious });
 
   // 12. 承認待ち状態をフロントエンドに返す（ランキングは即時更新しない）
   return response(200, { qualified: true, pending: true, recordUpdated: true });
