@@ -835,11 +835,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   updatePrecureCountLabel();
 
-  // JSONを読み込んで人数キャッシュを更新（ブライト/ウィンディの2件を除外）
+  // JSONを読み込んで人数キャッシュを更新
+  // 同一人物の別形態（ブルーム/ブライト等）は変身前の名前で1人にまとめる
   fetch('data/precure.json')
     .then(res => res.json())
     .then(data => {
-      const latest = (Array.isArray(data) ? data.length : 0) - 2;
+      const latest = Array.isArray(data) ? new Set(data.map(e => e.civilian.ja)).size : 0;
       if (latest > 0) {
         localStorage.setItem('precure_count', String(latest));
         if (countElem && typeof window.PRECURE_COUNT !== 'number') {
