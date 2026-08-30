@@ -2472,7 +2472,7 @@
     },
     "rollcall": {
       "ja": "解き放て！　内なる真実の香り　名探偵",
-      "en": "Unleash it! The scent of inner truth. Star Detective,"
+      "en": "Awaken! The fragrance of inner truth. Star Detective,"
     },
     "civilian": {
       "ja": "帆羽くれあ",
@@ -2496,6 +2496,29 @@
     "rollcall": {
       "ja": "神秘と秘密で包み込む",
       "en": "Enveloping all in mystery and secrets,"
+    },
+    "civilian": {
+      "ja": "森亜るるか",
+      "en": "Moria Luluka"
+    },
+    "voice": {
+      "ja": "東山奈央",
+      "en": "Toyama Nao"
+    },
+    "birthday": {
+      "ja": "11月1日",
+      "en": "November 1st"
+    }
+  },
+  {
+    "series": "2026",
+    "transformed": {
+      "ja": "キュアアルカナ",
+      "en": "Cure Arcana"
+    },
+    "rollcall": {
+      "ja": "真実を照らす白き光　名探偵",
+      "en": "The white light that illuminates the truth. Star Detective,"
     },
     "civilian": {
       "ja": "森亜るるか",

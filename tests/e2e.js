@@ -258,7 +258,7 @@ async function playQuiz(page, { wrongOnQuestion = -1 } = {}) {
   }));
   check('英語モードで口上が英訳で解決される', enRollcall.lang === 'en' && enRollcall.black === 'Emissary of light',
     JSON.stringify(enRollcall.black));
-  check('全93名に rollcall.en がある', enRollcall.allHaveEn);
+  check('全94名に rollcall.en がある', enRollcall.allHaveEn);
 
   // --- シナリオ5.5: アーカイブ（過去ランキング）ページと導線 ---
   await page.goto(BASE);
