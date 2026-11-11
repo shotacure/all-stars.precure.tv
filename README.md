@@ -378,7 +378,9 @@ aws sts get-caller-identity --profile allstars
         "events:DeleteRule",
         "events:DescribeRule",
         "events:PutTargets",
-        "events:RemoveTargets"
+        "events:RemoveTargets",
+        "events:TagResource",
+        "events:UntagResource"
       ],
       "Resource": "arn:aws:events:ap-northeast-1:YOUR_ACCOUNT_ID:rule/allstars-*"
     },
