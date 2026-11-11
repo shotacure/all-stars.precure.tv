@@ -313,7 +313,8 @@ aws sts get-caller-identity --profile allstars
         "cloudformation:CreateChangeSet",
         "cloudformation:DescribeChangeSet",
         "cloudformation:ExecuteChangeSet",
-        "cloudformation:DeleteChangeSet"
+        "cloudformation:DeleteChangeSet",
+        "cloudformation:ContinueUpdateRollback"
       ],
       "Resource": [
         "arn:aws:cloudformation:ap-northeast-1:YOUR_ACCOUNT_ID:stack/allstars-*",
@@ -410,6 +411,7 @@ aws sts get-caller-identity --profile allstars
       "Action": [
         "logs:DescribeLogGroups",
         "logs:CreateLogDelivery",
+        "logs:UpdateLogDelivery",
         "logs:DeleteLogDelivery",
         "logs:GetLogDelivery",
         "logs:ListLogDeliveries",
