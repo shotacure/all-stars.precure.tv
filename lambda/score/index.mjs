@@ -21,6 +21,8 @@ const SENDER_EMAIL = process.env.SENDER_EMAIL || "";
 const MAX_NAME_LENGTH = 16;
 const TOP_N = 100;
 const TOTAL_QUESTIONS = 10;
+// 結果バイナリの最大長（文字数）：10問×3バイトの base64url は 40 文字。余裕を見て 64
+const MAX_RESULT_BINARY_LENGTH = 64;
 
 // 記録バージョン（問題構成の変更でランキングを仕切り直す際に上げる）
 // "1" は従来の無印キー（leaderboard / pendings）にマップされ、過去データはそのまま残る
@@ -212,9 +214,16 @@ function validateScore(correct, totalTimeCs, resultBinary) {
     return false;
   }
 
+  // resultBinary は保存・公開されるため、型と長さを厳密に制限する
+  // （無制限だと巨大な文字列で DynamoDB の項目サイズ上限を突かれ、ランキング更新を妨害できてしまう）
+  if (resultBinary !== undefined && resultBinary !== null && typeof resultBinary !== "string") {
+    return false;
+  }
   if (typeof resultBinary === "string" && resultBinary.length > 0) {
+    if (resultBinary.length > MAX_RESULT_BINARY_LENGTH) return false;
     try {
       const decoded = decodeResultBinary(resultBinary);
+      if (decoded.questionCount !== TOTAL_QUESTIONS) return false;
       if (decoded.correct !== correct) return false;
       if (Math.abs(decoded.totalTimeCs - totalTimeCs) > 100) return false;
     } catch {
@@ -653,15 +662,15 @@ function generateAdminSignature(action, name) {
 }
 
 /**
- * ランクイン通知メールの HTML を生成
+ * ランクイン通知メール（承認待ち）の HTML を生成
  * 登録者の情報とクライアント情報、最新の順位表、承認/却下ボタンをすべて含む
+ * （自動承認はこのメールではなく digest Lambda の日次レポートで通知する）
  * @param {object} entry - ランクイン者の情報
  * @param {object} clientInfo - クライアント情報
  * @param {Array} rankEntries - 最新の順位表
- * @param {string} approveUrl - 承認用 URL（自動承認時は空文字）
- * @param {string} rejectUrl - 却下用 URL（自動承認時は空文字）
+ * @param {string} approveUrl - 承認用 URL
+ * @param {string} rejectUrl - 却下用 URL
  * @param {object} options - オプション
- * @param {boolean} options.autoApproved - 自動承認済みの場合 true
  * @param {object} options.suspicious - 連投検知の結果（flagged 時にメール冒頭へ警告を表示）
  * @returns {string} HTML 文字列
  */
@@ -752,26 +761,14 @@ function buildNotificationHtml(entry, clientInfo, rankEntries, approveUrl, rejec
     })
     .join("");
 
-  // 自動承認モードと承認待ちモードでヘッダー・バナー・ボタンを切り替え
-  const isAutoApproved = !!options.autoApproved;
+  const headingText = "🎀 ランクイン通知（承認待ち）";
 
-  const headingText = isAutoApproved
-    ? "🎀 ランクイン通知（自動承認済み）"
-    : "🎀 ランクイン通知（承認待ち）";
-
-  const statusBanner = isAutoApproved
-    ? `<p style="background:#d4edda;padding:12px;border-radius:8px;border:1px solid #28a745;">
-  ✅ ランキングに既存の名前と一致したため <strong>自動承認</strong> されました。ランキングは既に更新済みです。
-</p>`
-    : `<p style="background:#fff3cd;padding:12px;border-radius:8px;border:1px solid #ffc107;">
+  const statusBanner = `<p style="background:#fff3cd;padding:12px;border-radius:8px;border:1px solid #ffc107;">
   ⚠️ このエントリは <strong>承認待ち</strong> です。以下のボタンで承認または削除してください。
 </p>`;
 
-  // 自動承認時はアクションボタンなし（情報通知のみ）
-  // 承認待ち時は承認・削除ボタンを表示
-  const actionButtons = isAutoApproved
-    ? ""
-    : `<div style="text-align:center;margin:24px 0;">
+  // 承認・削除ボタン
+  const actionButtons = `<div style="text-align:center;margin:24px 0;">
   <a href="${escapeHtml(approveUrl)}"
      style="display:inline-block;background:#28a745;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-size:16px;font-weight:bold;margin:0 8px;">
     ✅ 掲載承認
@@ -845,7 +842,7 @@ ${actionButtons}
 
 <p style="margin-top:24px;color:#999;font-size:12px;">
   このメールは プリキュアオールスターズいえるかなクイズ のランクイン通知です。<br>
-  承認リンクの有効期限は 30 日です。
+  承認待ちは 30 日で失効します（削除リンクは掲載後も有効です）。
 </p>
 
 </body>
@@ -867,14 +864,13 @@ function escapeHtml(str) {
  * 管理者にランクイン通知メールを送信（SES v2）
  * ADMIN_EMAIL / SENDER_EMAIL が未設定の場合はスキップ
  * メール送信の失敗はスコア登録処理をブロックしない
- * メールには承認/却下ボタン、または自動承認済み通知が含まれる
+ * メールには承認/却下ボタンが含まれる
  * @param {object} entry - ランクイン者の情報
  * @param {object} clientInfo - クライアント情報
  * @param {Array} rankEntries - 最新の順位表
- * @param {string} approveUrl - 承認用 URL（自動承認時は空文字）
- * @param {string} rejectUrl - 却下用 URL（自動承認時は空文字）
+ * @param {string} approveUrl - 承認用 URL
+ * @param {string} rejectUrl - 却下用 URL
  * @param {object} options - オプション
- * @param {boolean} options.autoApproved - 自動承認済みの場合 true
  * @param {object} options.suspicious - 連投検知の結果（flagged 時は件名にも警告を付与）
  */
 async function sendAdminNotification(entry, clientInfo, rankEntries, approveUrl, rejectUrl, options = {}) {
@@ -886,10 +882,7 @@ async function sendAdminNotification(entry, clientInfo, rankEntries, approveUrl,
     options.suspicious && options.suspicious.flagged
       ? `🚨要確認(${options.suspicious.windowHours}h内 別名${options.suspicious.nameCount}件) `
       : "";
-  // 自動承認時と承認待ち時でメール件名を分ける
-  const subject = options.autoApproved
-    ? `${warnPrefix}[いえるかなクイズ] 自動承認: ${entry.name} (${timeStr}s)`
-    : `${warnPrefix}[いえるかなクイズ] 承認待ち: ${entry.name} (${timeStr}s)`;
+  const subject = `${warnPrefix}[いえるかなクイズ] 承認待ち: ${entry.name} (${timeStr}s)`;
   const htmlBody = buildNotificationHtml(entry, clientInfo, rankEntries, approveUrl, rejectUrl, options);
 
   try {
@@ -1158,11 +1151,14 @@ export const handler = async (event) => {
 };
 
 /**
- * 公開用にクライアント情報を除去したランキング配列を返す
+ * 公開用のランキング配列を返す
  * leaderboard.json や API レスポンスにはクライアント情報を含めない
+ * 表示に使わない項目（常に満点の correct、検証用の resultBinary）も除去する
  * @param {Array} entries - ランキングエントリ配列
- * @returns {Array} clientInfo を除去した配列
+ * @returns {Array} 公開用に整形した配列
  */
 function stripClientInfo(entries) {
-  return entries.map(({ clientInfo: _ci, ...rest }) => rest);
+  return entries.map(
+    ({ clientInfo: _ci, resultBinary: _rb, correct: _c, ...rest }) => rest
+  );
 }

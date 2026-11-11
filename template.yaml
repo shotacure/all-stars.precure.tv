@@ -13,9 +13,9 @@ Globals:
       Variables:
         TABLE_NAME: !Ref LeaderboardTable
         SITE_BUCKET: !Ref SiteBucketName
-        SESSION_SECRET: !Ref SessionSecret
         CORS_ORIGIN: !Ref CorsOrigin
         RECORDS_VERSION: !Ref RecordsVersion
+        # 署名鍵（SESSION_SECRET / ADMIN_SECRET）は必要な関数にだけ個別に渡す
 
 Parameters:
   RecordsVersion:
@@ -105,8 +105,13 @@ Resources:
         AllowHeaders:
           - Content-Type
         MaxAge: 86400
-      # スロットリングは API Gateway のデフォルト上限（10,000 rps）を利用
-      # 必要に応じてAWSコンソールから個別に調整可能
+      # スロットリング：API 全体で毎秒 10 リクエスト（瞬間最大 20）に制限
+      # クイズ開始時とランクイン時にしか呼ばれないため通常利用では到達しない
+      # 大量リクエストによる課金増・監査ログの押し流しを抑止する
+      # 超過時は 429 が返り、クイズ本体は動作する（ランキング登録のみ不可）
+      DefaultRouteSettings:
+        ThrottlingRateLimit: 10
+        ThrottlingBurstLimit: 20
 
   # --- Lambda: Session ---
   SessionFunction:
@@ -116,6 +121,10 @@ Resources:
       FunctionName: allstars-session
       Handler: index.handler
       CodeUri: lambda/session/
+      Environment:
+        Variables:
+          # セッショントークンの HMAC 署名鍵
+          SESSION_SECRET: !Ref SessionSecret
       Events:
         GetSession:
           Type: HttpApi
@@ -148,8 +157,13 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref LeaderboardTable
-        - S3CrudPolicy:
-            BucketName: !Ref SiteBucketName
+        # S3 への書き込みは leaderboard.json の更新のみに限定
+        # （サイト本体の HTML/JS を Lambda から書き換えられないようにする）
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub "arn:aws:s3:::${SiteBucketName}/leaderboard.json"
         # SES によるランクイン通知メール送信権限
         - Version: "2012-10-17"
           Statement:
@@ -185,17 +199,22 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref LeaderboardTable
-        - S3CrudPolicy:
-            BucketName: !Ref SiteBucketName
+        # S3 への書き込みは leaderboard.json の更新のみに限定
+        # （サイト本体の HTML/JS を Lambda から書き換えられないようにする）
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub "arn:aws:s3:::${SiteBucketName}/leaderboard.json"
       Events:
-        # 承認リンク（GET /api/admin/approve?id=xxx&sig=yyy）
+        # 承認リンク（GET /api/admin/approve?name=xxx&sig=yyy）
         Approve:
           Type: HttpApi
           Properties:
             ApiId: !Ref HttpApi
             Path: /api/admin/approve
             Method: GET
-        # 却下リンク（GET /api/admin/reject?id=xxx&sig=yyy）
+        # 却下リンク（GET /api/admin/reject?name=xxx&sig=yyy）
         Reject:
           Type: HttpApi
           Properties:
@@ -247,6 +266,7 @@ Resources:
   LeaderboardTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: allstars-leaderboard
       BillingMode: PAY_PER_REQUEST

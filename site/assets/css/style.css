@@ -207,15 +207,6 @@ button:disabled {
   font-weight: bold;
 }
 
-.result-item {
-  margin: 6px 0;
-  font-size: 0.95em;
-}
-
-.result-item .mark {
-  font-size: 1.5em;
-}
-
 /* 詳細結果表示のスタイル */
 .result-detail {
   margin: 10px 0;
@@ -419,10 +410,6 @@ button:disabled {
   
   button {
     padding: 10px 15px;
-    font-size: 0.9em;
-  }
-  
-  .result-item {
     font-size: 0.9em;
   }
   

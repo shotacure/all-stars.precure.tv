@@ -11,7 +11,7 @@
  *  - 初期表示：「いまのプリキュア…Nにん」を表示
  *  - プレイ中演出：タイマー左に歴代記録ゴースト、右にペース予測の暫定順位を表示
  *  - 自己ベスト：localStorage に保持しホーム画面に表示、更新時は結果画面で祝う
- *  - ランキング：上位20位をバックエンドと連携して管理
+ *  - ランキング：上位100位をバックエンドと連携して管理
  *      読み取りはS3上のleaderboard.jsonをCloudFront経由で取得
  *      書き込みはランクイン時のみAPI経由でバックエンドにアクセス
  **********************************************/
@@ -142,11 +142,6 @@ function initLangSwitch() {
       loadLanguage('en');
     });
   }
-}
-
-function hasEnglishFlag() {
-  const params = new URLSearchParams(location.search);
-  return params.has('en');
 }
 
 /*--------------------------------------------
@@ -288,6 +283,9 @@ const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-moti
 --------------------------------------------*/
 let leaderboard = [];
 let sessionToken = null;
+// 今回の結果で名前入力UIを既に出したか
+// （結果画面での言語切替は endQuiz を再実行するため、入力中の名前や登録済み表示を作り直さない）
+let nameInputShown = false;
 
 /*--------------------------------------------
   Base64URL ユーティリティ
@@ -345,7 +343,8 @@ function readBits(buf, bitPos, width) {
 /*--------------------------------------------
   共有エンコード
   ヘッダ：
-    ver(8)=6, totalCs(16)   → 合計センチ秒（0..65535=655.35s）
+    ver(8)=7, lang(1), totalCs(16)   → 合計センチ秒（0..65535=655.35s）
+    （旧 ver=6 は lang ビットなし。デコードのみ対応）
   各問（可変長）：
     正解：i(10), t(4), w(1=0),              tmCs(14)    = 29bit
     不正：i(10), t(4), w(1=1), si+1(10), sf(3), tmCs(14) = 42bit
@@ -494,7 +493,6 @@ function decodeResultsBinary(s) {
   ランキング：leaderboard.json の読み込み
   - ページ読み込み時にS3/CloudFront経由で取得しメモリに保持
   - バックエンドAPIへのアクセスは不要（静的JSON配信）
-  - entries キーを優先し、旧形式 top20 からのフォールバックも対応
 --------------------------------------------*/
 async function loadLeaderboard() {
   try {
@@ -504,9 +502,7 @@ async function loadLeaderboard() {
       return;
     }
     const data = await res.json();
-    leaderboard = Array.isArray(data.entries) ? data.entries
-               : Array.isArray(data.top20)   ? data.top20
-               : [];
+    leaderboard = Array.isArray(data.entries) ? data.entries : [];
   } catch {
     // leaderboard.json が存在しない初期状態でもエラーにしない
     leaderboard = [];
@@ -521,7 +517,7 @@ async function loadLeaderboard() {
 --------------------------------------------*/
 function isQualified(correct, totalTimeCs) {
   if (correct !== 10) return false;
-  if (leaderboard.length < 100) return true;
+  if (leaderboard.length < RANKING_CAPACITY) return true;
   const last = leaderboard[leaderboard.length - 1];
   return totalTimeCs < last.totalTimeCs;
 }
@@ -828,7 +824,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof window.PRECURE_COUNT === 'number') {
     latestPrecureCount = window.PRECURE_COUNT;
   } else {
-    const cached = localStorage.getItem('precure_count');
+    // localStorage はプライベートブラウズ等で例外を投げることがある（投げても初期化を止めない）
+    let cached = null;
+    try { cached = localStorage.getItem('precure_count'); } catch (_) {}
     if (cached && !Number.isNaN(Number(cached))) {
       latestPrecureCount = Number(cached);
     }
@@ -842,7 +840,7 @@ document.addEventListener('DOMContentLoaded', () => {
     .then(data => {
       const latest = Array.isArray(data) ? new Set(data.map(e => e.civilian.ja)).size : 0;
       if (latest > 0) {
-        localStorage.setItem('precure_count', String(latest));
+        try { localStorage.setItem('precure_count', String(latest)); } catch (_) {}
         if (countElem && typeof window.PRECURE_COUNT !== 'number') {
           latestPrecureCount = latest;
           updatePrecureCountLabel();
@@ -867,7 +865,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const decoded = decodeResultsBinary(rParam);
       results = [];
-      let sumCs = 0;
 
       // 復元：ビット列から各問を再構成
       decoded.items.forEach(it => {
@@ -901,8 +898,6 @@ document.addEventListener('DOMContentLoaded', () => {
           timeCs: it.tmCs,
           time: (it.tmCs / 100).toFixed(2)
         });
-
-        sumCs += it.tmCs;
       });
 
       // 合計時間（センチ秒 → ms）
@@ -938,21 +933,6 @@ $('start-btn').onclick = () => {
     startQuiz();
   }).catch(err => console.error('Failed to start quiz:', err));
 };
-
-/*--------------------------------------------
-  データ読込 → 問題生成 → 出題順シャッフル → 開始
---------------------------------------------*/
-function loadQuizData() {
-  fetch('data/precure.json')
-    .then(res => res.json())
-    .then(data => {
-      quizData = data;
-      generateQuestions();
-      questions = shuffleArray(questions); // 全体の出題順をランダムに
-      startQuiz();
-    })
-    .catch(err => console.error('Failed to load precure.json:', err));
-}
 
 /*--------------------------------------------
   配列シャッフル（Fisher–Yates）
@@ -1139,7 +1119,7 @@ function buildStandardQuestion(type, used) {
   }
   if (choices.length < 4) return false;
 
-  choices.sort(() => Math.random() - 0.5);
+  shuffleArray(choices);
 
   const aKey = answerKeyByType(type);
   questions.push({
@@ -1225,7 +1205,7 @@ function generateQuestions() {
       }
     }
 
-    choices.sort(() => Math.random() - 0.5);
+    shuffleArray(choices);
 
     questions.push({
       question: buildQuestionText(typeCode, addEntry),
@@ -1288,6 +1268,7 @@ function resetToHome() {
   elapsedTime = 0;
   resultTimerSec = null; // 結果確定時間リセット
   sessionToken = null;
+  nameInputShown = false;
 
   $('result-area').innerHTML = '';
   $('timer').textContent = formatSeconds(0);
@@ -1295,7 +1276,6 @@ function resetToHome() {
   resetPlayEffects();
   $('start-btn').classList.remove('hidden');
   $('precure-count')?.classList.remove('hidden');
-  $('lang-switch')?.classList.remove('hidden');
   $('retry-btn').classList.add('hidden');
   $('tweet-btn').classList.add('hidden');
   $('question-area').innerHTML = '';
@@ -1492,14 +1472,15 @@ function setupResultButtons(correctCount, totalSec, praise, speedComment) {
       tweetBtn.onclick = () => {
         const body = t('tweet_result', { correct: correctCount, total: 10, time: totalText });
         const text = `${body} ${praise} ${speedComment} ${shareUrl}`;
-        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
       };
     }
   }
 
   // リトライボタン設定
   if (retryBtn) {
-    retryBtn.textContent = t('retry');
+    // 共有URL（他人の結果）で開いた場合は「あそんでみる」
+    retryBtn.textContent = t(isSharedView ? 'retry_shared' : 'retry');
     retryBtn.classList.remove('hidden');
     retryBtn.onclick = () => {
       // いまの言語を 1bit で保持してホームへ
@@ -1518,7 +1499,8 @@ function finalizeRecords(resArea, correctCount, totalSec) {
     resArea.innerHTML += `<p class="pb-updated">${t('personal_best_updated')}</p>`;
   }
 
-  if (!isSharedView && API_BASE_URL && isQualified(correctCount, totalTimeCs)) {
+  if (!isSharedView && API_BASE_URL && !nameInputShown && isQualified(correctCount, totalTimeCs)) {
+    nameInputShown = true;
     showNameInput(correctCount, totalTimeCs);
   }
 }
@@ -1691,11 +1673,6 @@ function showNameInput(correctCount, totalTimeCs) {
         } else if (Array.isArray(result.entries)) {
           // ランキング即時更新（フォールバック）
           leaderboard = result.entries;
-          renderLeaderboard();
-          area.classList.add('hidden');
-        } else if (Array.isArray(result.top20)) {
-          // 旧形式のレスポンスへのフォールバック
-          leaderboard = result.top20;
           renderLeaderboard();
           area.classList.add('hidden');
         }
