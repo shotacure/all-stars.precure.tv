@@ -23,7 +23,6 @@
   "result_correct_answer": "せいかい：{{ans}}",
   "praise_perfect": "すごい！パーフェクトだよ！",
   "praise_very_good": "よくできました！",
-  "praise_great": "がんばったね！つぎはもっといけるよ！",
   "praise_close": "おしかったね！またちょうせんしよう！",
   "praise_good": "がんばったね！つぎはもっといけるよ！",
   "praise_finish": "さいごまでがんばったね！",
@@ -33,7 +32,6 @@
   "speed_think": "じっくりかんがえてがんばったね！",
   "retry_shared": "あそんでみる",
   "retry": "もういちどあそぶ",
-  "tweet_text": "#プリキュアオールスターズいえるかなクイズ で{{correct}}/{{total}}正解、タイムは{{time}}秒でした！ {{praise}} {{speed}} {{url}}",
   "q_transform_who": "{{name}}が変身するのは誰？",
   "q_actor_who": "{{name}}さんが演じるのは誰？",
   "q_cure_transform_who": "{{name}}に変身するのは誰？",
@@ -69,7 +67,6 @@
   "leaderboard_name_error": "なまえをいれてね（16もじいない）",
   "leaderboard_submit_error": "とうろくできませんでした。もういちどためしてね。",
   "leaderboard_pending_message": "とうろくかんりょう！はんえいまでしばらくおまちください。",
-  "leaderboard_auto_approved_message": "とうろくかんりょう！ランキングにはんえいされました！",
   "leaderboard_record_updated_message": "きろくこうしん！あたらしいきろくがはんえいされたよ！",
   "leaderboard_not_updated_message": "いまのきろくのほうがいいから、こうしんされなかったよ。"
 }

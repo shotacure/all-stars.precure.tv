@@ -69,7 +69,10 @@ function rankEntry(a, b) {
  * @returns {Array} 公開用に整形した配列
  */
 function stripForPublic(entries) {
-  return entries.map(({ clientInfo: _ci, id: _id, ...rest }) => rest);
+  // score 側の stripClientInfo と同じ項目を除去すること
+  return entries.map(
+    ({ clientInfo: _ci, id: _id, resultBinary: _rb, correct: _c, ...rest }) => rest
+  );
 }
 
 /**
@@ -532,6 +535,14 @@ export const handler = async (event) => {
 
   const timeStr = (targetEntry.totalTimeCs / 100).toFixed(2);
   const rank = merged.findIndex((e) => e.timestamp === targetEntry.timestamp && e.name === targetEntry.name) + 1;
+  // 承認待ちの間に上位が埋まり、上位 TOP_N 件から外れた場合は掲載されない
+  if (rank === 0) {
+    return htmlResponse(200, "圏外",
+      `<div class="icon">📉</div><h1>ランキング圏外でした</h1>` +
+      `<p><strong>${escapeHtml(targetEntry.name)}</strong>（${timeStr}秒）は承認されましたが、` +
+      `現在の上位 ${TOP_N} 位に入らないため掲載されていません。</p>`,
+      "#6c757d");
+  }
   return htmlResponse(200, "承認完了",
     `<div class="icon">✅</div><h1>承認しました</h1>` +
     `<p><strong>${escapeHtml(targetEntry.name)}</strong>（${timeStr}秒）をランキング第 ${rank} 位として掲載しました。</p>`,

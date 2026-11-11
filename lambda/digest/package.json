@@ -1,6 +1,6 @@
 {
   "name": "allstars-digest",
-  "version": "1.1.5",
+  "private": true,
   "type": "module",
   "description": "Daily auto-approval report for プリキュアオールスターズいえるかなクイズ",
   "dependencies": {

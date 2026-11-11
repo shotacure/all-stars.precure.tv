@@ -176,23 +176,6 @@
     'body.imode .correct{color:#006600;}',
     'body.imode .incorrect{color:#cc0000;}',
 
-    /* ランキング */
-    'body.imode #leaderboard-area{margin:0.3em 0;}',
-    'body.imode #leaderboard-title{font-size:1em;color:#222;text-align:center;margin-bottom:0.2em;}',
-    'body.imode .leaderboard-table{width:100%;border-collapse:collapse;font-size:1em;}',
-    'body.imode .leaderboard-table thead{background-color:#ddd;color:#222;}',
-    'body.imode .leaderboard-table th,body.imode .leaderboard-table td{padding:0.15em 0.2em;text-align:center;border-bottom:1px dotted #888;}',
-    'body.imode .leaderboard-table tbody tr:nth-child(odd){background:#f8f8f8;}',
-    'body.imode .leaderboard-table tbody tr:nth-child(even){background:#fff;}',
-    'body.imode .leaderboard-table tbody tr:nth-child(1) td:first-child,body.imode .leaderboard-table tbody tr:nth-child(2) td:first-child,body.imode .leaderboard-table tbody tr:nth-child(3) td:first-child{color:#222;}',
-
-    /* 名前入力 */
-    'body.imode #name-input-area{margin:0.3em 0;padding:0.3em;background:#f0f0f0;border:1px dotted #888;border-radius:0;}',
-    'body.imode #name-input-message{font-family:"DotGothic16",monospace;font-size:1em;color:#222;margin:0 0 0.2em;}',
-    'body.imode #name-input{font-family:"DotGothic16",monospace;font-size:1em;padding:0.15em 0.3em;border:1px solid #666;border-radius:0;width:70%;background:#fff;}',
-    'body.imode #name-input:focus{border-color:#333;box-shadow:none;}',
-    'body.imode #name-error{font-size:1em;color:#cc0000;margin:0.15em 0 0;}',
-
     /* ツイート・リトライボタン */
     'body.imode #tweet-btn,body.imode #retry-btn{font-size:1em;padding:0.2em 0;text-align:left;}',
 
