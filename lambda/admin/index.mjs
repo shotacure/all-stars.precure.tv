@@ -19,6 +19,15 @@ const RECORDS_VERSION = process.env.RECORDS_VERSION || "1";
 const LEADERBOARD_PK = RECORDS_VERSION === "1" ? "leaderboard" : `leaderboard#v${RECORDS_VERSION}`;
 const PENDINGS_PK = RECORDS_VERSION === "1" ? "pendings" : `pendings#v${RECORDS_VERSION}`;
 
+// シャドウ対象端末のレコード（score 側と同一のキーを使うこと）
+// 削除操作を行うと、対象エントリの送信元端末（同一IP・同一UA）をここに登録する
+// 登録された端末からの以降の送信は、score 側で「受け付けたように見える応答」だけ返し破棄される
+const SHADOWS_PK = "shadows";
+// シャドウ登録の有効期間（日）：IP の再割り当てで無関係な人を巻き込み続けないよう期限を設ける
+const SHADOW_TTL_DAYS = 30;
+// 削除時に同一端末のエントリをまとめて削除する対象期間（日）
+const SWEEP_WINDOW_DAYS = 7;
+
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const s3 = new S3Client({});
 
@@ -138,18 +147,127 @@ async function writeLeaderboardJson(entries) {
 }
 
 /**
- * 集約型 pendings レコードから指定名義を削除して書き戻す
+ * IPv6 アドレスを 8 グループの正規化済み配列に展開する（score 側と同一ロジック）
+ * 解析不能な形式は null を返す
+ * @param {string} addr - IPv6 文字列
+ * @returns {string[]|null} 8 要素の hextet 配列、または null
+ */
+function expandIpv6(addr) {
+  const clean = addr.split("%")[0];
+  if (clean.includes(".")) return null;
+  const halves = clean.split("::");
+  if (halves.length > 2) return null;
+  const head = halves[0] ? halves[0].split(":") : [];
+  const tail = halves.length === 2 ? (halves[1] ? halves[1].split(":") : []) : null;
+
+  let groups;
+  if (tail === null) {
+    groups = head;
+  } else {
+    const missing = 8 - head.length - tail.length;
+    if (missing < 0) return null;
+    groups = [...head, ...Array(missing).fill("0"), ...tail];
+  }
+  if (groups.length !== 8) return null;
+
+  const normalized = [];
+  for (const g of groups) {
+    if (!/^[0-9a-fA-F]{1,4}$/.test(g)) return null;
+    normalized.push(g.toLowerCase().padStart(4, "0"));
+  }
+  return normalized;
+}
+
+/**
+ * 端末の同一性判定キー（score 側と同一ロジックであること）
+ * - IPv4: アドレス完全一致
+ * - IPv6: 先頭4グループ（/64）一致
+ * - User-Agent: 完全一致
+ * IP または UA が判定不能な場合は null（→ 一括削除・シャドウ登録の対象外）
+ * @param {object} clientInfo - クライアント情報
+ * @returns {string|null}
+ */
+function clientKey(clientInfo) {
+  const ua = clientInfo?.userAgent;
+  const ip = clientInfo?.sourceIp;
+  if (typeof ua !== "string" || ua === "" || typeof ip !== "string") return null;
+  const addr = ip.trim().split("%")[0];
+  if (addr === "") return null;
+
+  if (addr.includes(":")) {
+    const groups = expandIpv6(addr);
+    if (!groups) return null;
+    return `v6:${groups.slice(0, 4).join(":")}|${ua}`;
+  }
+  return `v4:${addr}|${ua}`;
+}
+
+/**
+ * 端末をシャドウ対象として登録（pk: SHADOWS_PK の entries 配列）
+ * - 期限切れの登録は書き込み時に自動除去
+ * - 同一端末が既に登録済みの場合は期限を延長
+ * - 楽観的ロックで同時書き込みの競合を防止（競合時はリトライ）
+ * @param {Array<{key: string, sourceIp: string, userAgent: string}>} devices - 登録する端末
+ * @param {string} name - 削除操作の対象となった名前（記録用）
+ * @param {number} retries - リトライ残回数
+ */
+async function addShadows(devices, name, retries = 3) {
+  const getResult = await ddb.send(
+    new GetCommand({ TableName: TABLE_NAME, Key: { pk: SHADOWS_PK } })
+  );
+  const current = getResult.Item || { pk: SHADOWS_PK, entries: [], version: 0 };
+  const version = current.version || 0;
+
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const expiresAt = new Date(
+    now.getTime() + SHADOW_TTL_DAYS * 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  const newKeys = new Set(devices.map((d) => d.key));
+  const kept = (current.entries || []).filter(
+    (e) => e && e.expiresAt > nowIso && !newKeys.has(e.key)
+  );
+  const added = devices.map((d) => ({
+    key: d.key,
+    sourceIp: d.sourceIp,
+    userAgent: d.userAgent,
+    name,
+    addedAt: nowIso,
+    expiresAt,
+  }));
+
+  try {
+    await ddb.send(
+      new PutCommand({
+        TableName: TABLE_NAME,
+        Item: { pk: SHADOWS_PK, entries: [...kept, ...added], version: version + 1 },
+        ConditionExpression: "attribute_not_exists(version) OR version = :v",
+        ExpressionAttributeValues: { ":v": version },
+      })
+    );
+  } catch (err) {
+    if (err.name === "ConditionalCheckFailedException" && retries > 0) {
+      return addShadows(devices, name, retries - 1);
+    }
+    throw err;
+  }
+}
+
+/**
+ * 集約型 pendings レコードから指定名義（複数可）を削除して書き戻す
  * @param {object} pendingsItem - DynamoDB の pendings レコード全体
- * @param {string} name - 削除する名前
+ * @param {string[]} names - 削除する名前（entries マップのキー）
  * @returns {boolean} 削除に成功したら true
  */
-async function removePendingEntry(pendingsItem, name) {
+async function removePendingEntries(pendingsItem, names) {
   const entries = pendingsItem.entries || {};
   const version = pendingsItem.version || 0;
-  if (!entries[name]) return false;
+  const targets = names.filter((n) => entries[n]);
+  if (targets.length === 0) return false;
 
   const updated = { ...entries };
-  delete updated[name];
+  for (const n of targets) delete updated[n];
   try {
     await ddb.send(
       new PutCommand({
@@ -218,14 +336,10 @@ export const handler = async (event) => {
   if (action === "reject") {
     // --- 削除処理 ---
     // 承認は「名義」の承認なので、削除も名義単位で行う
-    // 1. 承認待ちレコードから該当名義を除去（存在すれば）
-    let deletedFromPending = false;
-    if (hasPending) {
-      deletedFromPending = await removePendingEntry(pendingsItem, lookupKey);
-    }
-
-    // 2. ランキングからも同一名義を削除（承認済みのエントリが存在する場合）
+    // さらに、削除対象と同じ端末（同一IP・同一UA）から直近に送信されたエントリを
+    // 別名義も含めてすべて削除し、その端末をシャドウ対象に登録する
     const targetName = hasPending ? targetEntry.name : lookupKey;
+    const pendingEntries = pendingsItem.entries || {};
     const lbResult = await ddb.send(
       new GetCommand({ TableName: TABLE_NAME, Key: { pk: LEADERBOARD_PK } })
     );
@@ -233,12 +347,64 @@ export const handler = async (event) => {
     const entries = lbItem.entries || lbItem.top20 || [];
     const lbVersion = lbItem.version || 0;
 
-    const existsInLeaderboard = entries.some((e) => e.name === targetName);
+    // 1. 削除対象名義のエントリ（承認待ち・ランキング）から送信元端末を特定
+    const namedTargets = [
+      ...(hasPending ? [targetEntry] : []),
+      ...entries.filter((e) => e.name === targetName),
+    ];
+    const devices = new Map();
+    for (const e of namedTargets) {
+      const key = clientKey(e.clientInfo);
+      if (key && !devices.has(key)) {
+        devices.set(key, {
+          key,
+          sourceIp: e.clientInfo.sourceIp,
+          userAgent: e.clientInfo.userAgent,
+        });
+      }
+    }
+
+    // 同一端末から対象期間内に送信されたエントリかどうか
+    const sweepCutoff = new Date(
+      Date.now() - SWEEP_WINDOW_DAYS * 24 * 60 * 60 * 1000
+    ).toISOString();
+    const isSameDevice = (e) =>
+      !!e && !!e.timestamp && e.timestamp >= sweepCutoff && devices.has(clientKey(e.clientInfo));
+
+    // 2. 端末をシャドウ対象に登録（削除より先に行い、処理中の再送信も遮断する）
+    let shadowRegistered = false;
+    if (namedTargets.length > 0 && devices.size > 0) {
+      try {
+        await addShadows([...devices.values()], targetName);
+        shadowRegistered = true;
+      } catch (err) {
+        // シャドウ登録の失敗は削除処理をブロックしない（結果ページで通知）
+        console.error("Failed to register shadow devices:", err);
+      }
+    }
+
+    // 3. 承認待ちレコードから該当名義と同一端末のエントリを除去
+    const pendingNames = Object.keys(pendingEntries).filter(
+      (k) => (hasPending && k === lookupKey) || isSameDevice(pendingEntries[k])
+    );
+    let deletedFromPending = false;
+    if (pendingNames.length > 0) {
+      deletedFromPending = await removePendingEntries(pendingsItem, pendingNames);
+      if (!deletedFromPending) {
+        return htmlResponse(409, "競合エラー",
+          '<div class="icon">⚡</div><h1>同時更新の競合</h1><p>ブラウザを再読み込みして再度お試しください。</p>',
+          "#ffc107");
+      }
+    }
+
+    // 4. ランキングからも同一名義と同一端末のエントリを削除
+    const isLbTarget = (e) => e.name === targetName || isSameDevice(e);
+    const lbNames = entries.filter(isLbTarget).map((e) => e.name);
     let deletedFromLeaderboard = false;
 
-    if (existsInLeaderboard) {
-      // ランキングから同一名義を除外して再書き込み
-      const filtered = entries.filter((e) => e.name !== targetName);
+    if (lbNames.length > 0) {
+      // ランキングから対象を除外して再書き込み
+      const filtered = entries.filter((e) => !isLbTarget(e));
       try {
         await ddb.send(
           new PutCommand({
@@ -274,6 +440,25 @@ export const handler = async (event) => {
     if (deletedFromPending) parts.push("承認待ちリスト");
     if (deletedFromLeaderboard) parts.push("ランキング");
     deleteMsg += parts.join("と") + "から削除しました。</p>";
+
+    // 同一端末（同一IP・同一UA）から巻き取って削除した別名義の一覧
+    const sweptNames = [...new Set([
+      ...(deletedFromPending ? pendingNames.map((k) => pendingEntries[k].name || k) : []),
+      ...(deletedFromLeaderboard ? lbNames : []),
+    ])].filter((n) => n !== targetName);
+    if (sweptNames.length > 0) {
+      deleteMsg += `<p>同じ端末（同一IP・同一UA）から直近 ${SWEEP_WINDOW_DAYS} 日以内に送信された ` +
+        `${sweptNames.length} 件もあわせて削除しました：<br><strong>` +
+        sweptNames.map(escapeHtml).join("、") + `</strong></p>`;
+    }
+
+    if (shadowRegistered) {
+      deleteMsg += `<p style="font-size:0.9em;">この端末からの今後の送信は、受け付けたように見せたまま破棄されます（${SHADOW_TTL_DAYS} 日間）。</p>`;
+    } else if (devices.size === 0) {
+      deleteMsg += `<p style="font-size:0.9em;">送信元の IP / User-Agent を特定できなかったため、端末単位の一括削除と以後の遮断は行っていません。</p>`;
+    } else {
+      deleteMsg += `<p style="font-size:0.9em;color:#dc3545;">端末の遮断登録に失敗しました（削除自体は完了）。CloudWatch Logs を確認してください。</p>`;
+    }
     deleteMsg += `<p style="font-size:0.9em;">監査ログには記録が残っています。</p>`;
 
     return htmlResponse(200, "削除完了", deleteMsg, "#dc3545");
@@ -337,7 +522,7 @@ export const handler = async (event) => {
   }
 
   // 4. 承認待ちレコードから該当名義を除去
-  await removePendingEntry(pendingsItem, lookupKey).catch(() => {
+  await removePendingEntries(pendingsItem, [lookupKey]).catch(() => {
     // pending の削除失敗は承認処理の成功に影響させない
     console.error("Failed to remove approved entry from pending list");
   });

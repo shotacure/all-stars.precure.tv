@@ -79,6 +79,12 @@ Resources:
       LogGroupName: /aws/lambda/allstars-admin
       RetentionInDays: 90
 
+  DigestLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/allstars-digest
+      RetentionInDays: 90
+
   # --- API Gateway (HTTP API) ---
   HttpApi:
     Type: AWS::Serverless::HttpApi
@@ -197,11 +203,47 @@ Resources:
             Path: /api/admin/reject
             Method: GET
 
+  # --- Lambda: Digest ---
+  # 自動承認の日次レポート
+  # 毎朝 8:30 (JST) に起動し、過去24時間に自動承認があった場合のみ
+  # まとめて管理者にメールでレポートする（無ければ何も送信しない）
+  DigestFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: DigestLogGroup
+    Properties:
+      FunctionName: allstars-digest
+      Handler: index.handler
+      CodeUri: lambda/digest/
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref LeaderboardTable
+          ADMIN_EMAIL: !Ref AdminEmail
+          SENDER_EMAIL: !Ref SenderEmail
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref LeaderboardTable
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: "*"
+      Events:
+        # EventBridge の cron は UTC 指定：23:30 UTC = 翌 08:30 JST（日本は夏時間なし）
+        DailyReport:
+          Type: Schedule
+          Properties:
+            Schedule: cron(30 23 * * ? *)
+            Description: Daily auto-approval report at 08:30 JST
+
   # --- DynamoDB ---
-  # pk="leaderboard" : ランキング本体（entries 配列 + clientInfo、上位100件）
-  # pk="pendings"    : 承認待ちスコア（entries マップ、名前キー、30日で除去）
-  # pk="audits"      : 監査ログ（logs 配列、最大100件、30日で除去）
-  # pk="tokens"      : 使用済みトークン（nonces マップ、有効期限切れは自動除去）
+  # pk="leaderboard"   : ランキング本体（entries 配列 + clientInfo、上位100件）
+  # pk="pendings"      : 承認待ちスコア（entries マップ、名前キー、30日で除去）
+  # pk="audits"        : 監査ログ（logs 配列、最大100件、30日で除去）
+  # pk="tokens"        : 使用済みトークン（nonces マップ、有効期限切れは自動除去）
+  # pk="autoapprovals" : 自動承認の記録（events 配列、48時間で除去、日次レポート用）
+  # pk="shadows"       : シャドウ対象端末（entries 配列、30日で除去）
   LeaderboardTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain

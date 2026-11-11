@@ -47,6 +47,15 @@ const SUSPICIOUS_WINDOW_HOURS = 24;
 // 名前を変えた連投（自演）の疑いとして管理者メールで警告する
 // （同一名義での複数回送信は正当な再挑戦とみなし警告しない）
 const SUSPICIOUS_THRESHOLD = 2;
+// シャドウ対象端末のレコード（管理者が「削除」した端末。admin 側と同一のキーを使うこと）
+// 該当端末からの送信は「受け付けたように見える応答」だけ返し、何も保存・通知しない
+const SHADOWS_PK = "shadows";
+// 自動承認の記録（日次レポート用。digest 側と同一のキーを使うこと）
+const AUTO_APPROVALS_PK = "autoapprovals";
+// 自動承認の記録の保持時間（時間）：レポート対象は直近24時間なので余裕を持って48時間
+const AUTO_APPROVAL_KEEP_HOURS = 48;
+// 自動承認の記録の最大保持件数（超過分は古い順に削除）
+const AUTO_APPROVAL_MAX = 200;
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const s3 = new S3Client({});
@@ -370,6 +379,96 @@ function ipSubnet(ip) {
   }
   const prefix = octets.slice(0, 3).join(".");
   return { key: `v4:${prefix}`, label: `${prefix}.0/24` };
+}
+
+/**
+ * 端末の同一性判定キー（シャドウ対象の照合用。admin 側と同一ロジックであること）
+ * - IPv4: アドレス完全一致
+ * - IPv6: 先頭4グループ（/64）一致（一時アドレスの切り替わりで同一回線を取りこぼさないため）
+ * - User-Agent: 完全一致
+ * IP または UA が判定不能な場合は null（→ 照合対象外として誤判定を避ける）
+ * @param {object} clientInfo - クライアント情報
+ * @returns {string|null}
+ */
+function clientKey(clientInfo) {
+  const ua = clientInfo?.userAgent;
+  const ip = clientInfo?.sourceIp;
+  if (typeof ua !== "string" || ua === "" || typeof ip !== "string") return null;
+  const addr = ip.trim().split("%")[0];
+  if (addr === "") return null;
+
+  if (addr.includes(":")) {
+    const groups = expandIpv6(addr);
+    if (!groups) return null;
+    return `v6:${groups.slice(0, 4).join(":")}|${ua}`;
+  }
+  return `v4:${addr}|${ua}`;
+}
+
+/**
+ * シャドウ対象の端末かどうかを判定
+ * 管理者の削除操作で登録された端末（pk: SHADOWS_PK）と IP・UA を照合する
+ * 読み取りに失敗した場合は通常の送信として扱う（正当なユーザーを巻き込まない）
+ * @param {object} clientInfo - 今回のクライアント情報
+ * @returns {Promise<boolean>} シャドウ対象なら true
+ */
+async function isShadowed(clientInfo) {
+  const key = clientKey(clientInfo);
+  if (!key) return false;
+  try {
+    const res = await ddb.send(
+      new GetCommand({ TableName: TABLE_NAME, Key: { pk: SHADOWS_PK } })
+    );
+    const now = new Date().toISOString();
+    return (res.Item?.entries || []).some(
+      (e) => e && e.key === key && (!e.expiresAt || e.expiresAt > now)
+    );
+  } catch (err) {
+    console.error("Failed to read shadow list:", err);
+    return false;
+  }
+}
+
+/**
+ * 自動承認の発生を記録（pk: AUTO_APPROVALS_PK の events 配列に追記）
+ * 自動承認は即時メールを送らず、digest Lambda が毎朝まとめてレポートする
+ * - 保持時間を超えた記録は書き込み時に自動除去
+ * - 楽観的ロックで同時書き込みの競合を防止（競合時はリトライ）
+ * - 記録の失敗は自動承認の成功に影響させない
+ * @param {object} record - 記録する自動承認の内容
+ * @param {number} retries - リトライ残回数
+ */
+async function recordAutoApproval(record, retries = 3) {
+  try {
+    const getResult = await ddb.send(
+      new GetCommand({ TableName: TABLE_NAME, Key: { pk: AUTO_APPROVALS_PK } })
+    );
+    const current = getResult.Item || { pk: AUTO_APPROVALS_PK, events: [], version: 0 };
+    const version = current.version || 0;
+
+    const cutoff = new Date(
+      Date.now() - AUTO_APPROVAL_KEEP_HOURS * 60 * 60 * 1000
+    ).toISOString();
+    const events = [
+      ...(current.events || []).filter((e) => e.approvedAt > cutoff),
+      record,
+    ].slice(-AUTO_APPROVAL_MAX);
+
+    // lastReportedAt（digest 側が管理）などの既存属性はそのまま引き継ぐ
+    await ddb.send(
+      new PutCommand({
+        TableName: TABLE_NAME,
+        Item: { ...current, pk: AUTO_APPROVALS_PK, events, version: version + 1 },
+        ConditionExpression: "attribute_not_exists(version) OR version = :v",
+        ExpressionAttributeValues: { ":v": version },
+      })
+    );
+  } catch (err) {
+    if (err.name === "ConditionalCheckFailedException" && retries > 0) {
+      return recordAutoApproval(record, retries - 1);
+    }
+    console.error("Failed to record auto approval:", err);
+  }
 }
 
 /**
@@ -852,15 +951,33 @@ export const handler = async (event) => {
     return response(400, { error: "Invalid score data" });
   }
 
+  // 4b. シャドウ対象端末の判定
+  //     管理者に削除された端末（同一IP・同一UA）からの送信は、以降の判定を
+  //     通常どおり進めて「受け付けたように見える応答」を返すが、
+  //     監査ログ・承認待ち・ランキング・通知のいずれにも一切書き込まない
+  const shadowed = await isShadowed(clientInfo);
+  if (shadowed) {
+    // 記録は CloudWatch Logs のみ（システム側のデータには残さない）
+    console.log(JSON.stringify({
+      shadowed: true,
+      name,
+      totalTimeCs,
+      sourceIp: clientInfo.sourceIp,
+      userAgent: clientInfo.userAgent,
+    }));
+  }
+
   // 5. 監査ログを書き込み（ランクイン有無にかかわらず全送信を記録）
-  const auditLogs = await writeAuditLog(tokenResult.nonce, {
-    name,
-    correct,
-    totalTimeCs,
-    resultBinary: resultBinary || "",
-    clientInfo,
-    submittedAt: new Date().toISOString(),
-  });
+  const auditLogs = shadowed
+    ? null
+    : await writeAuditLog(tokenResult.nonce, {
+        name,
+        correct,
+        totalTimeCs,
+        resultBinary: resultBinary || "",
+        clientInfo,
+        submittedAt: new Date().toISOString(),
+      });
 
   // 5b. 連投検知：類似IP（同一サブネット）・同一UAで直近24時間に複数回送信があれば
   //     管理者通知メールの件名・冒頭に警告を出す
@@ -923,50 +1040,69 @@ export const handler = async (event) => {
     // --- 自動承認フロー ---
     // 既知の名前なので承認待ちにせず、ランキングを直接更新する
 
-    const lbVersion = current.version || 0;
+    const publicEntries = stripClientInfo(merged);
 
-    // 8a. ランキングを楽観的ロックで直接書き込み
-    try {
-      await ddb.send(
-        new PutCommand({
-          TableName: TABLE_NAME,
-          Item: { pk: LEADERBOARD_PK, entries: merged, version: lbVersion + 1 },
-          ConditionExpression: "attribute_not_exists(version) OR version = :v",
-          ExpressionAttributeValues: { ":v": lbVersion },
+    // シャドウ対象端末の場合は何も書き込まず、更新されたように見える応答だけ返す
+    if (!shadowed) {
+      const lbVersion = current.version || 0;
+
+      // 8a. ランキングを楽観的ロックで直接書き込み
+      try {
+        await ddb.send(
+          new PutCommand({
+            TableName: TABLE_NAME,
+            Item: { pk: LEADERBOARD_PK, entries: merged, version: lbVersion + 1 },
+            ConditionExpression: "attribute_not_exists(version) OR version = :v",
+            ExpressionAttributeValues: { ":v": lbVersion },
+          })
+        );
+      } catch (err) {
+        if (err.name === "ConditionalCheckFailedException") {
+          return response(409, { error: "concurrent update, please retry" });
+        }
+        throw err;
+      }
+
+      // 8b. ランキング JSON を S3 に書き出し（CloudFront 経由で配信）
+      const leaderboardJson = JSON.stringify(
+        { updatedAt: new Date().toISOString(), entries: publicEntries },
+        null,
+        2
+      );
+
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: SITE_BUCKET,
+          Key: "leaderboard.json",
+          Body: leaderboardJson,
+          ContentType: "application/json",
+          CacheControl: "public, max-age=30",
         })
       );
-    } catch (err) {
-      if (err.name === "ConditionalCheckFailedException") {
-        return response(409, { error: "concurrent update, please retry" });
-      }
-      throw err;
+
+      // 8c. 自動承認の発生を記録（即時メールは送らない）
+      //     digest Lambda が毎朝 8:30 に過去24時間分をまとめてレポートする
+      await recordAutoApproval({
+        name,
+        totalTimeCs,
+        previousTimeCs: existingEntry ? existingEntry.totalTimeCs : null,
+        rank:
+          merged.findIndex(
+            (e) => e.timestamp === newEntry.timestamp && e.name === newEntry.name
+          ) + 1,
+        approvedAt: newEntry.timestamp,
+        clientInfo,
+        suspicious: suspicious.flagged
+          ? {
+              nameCount: suspicious.nameCount,
+              submissionCount: suspicious.submissionCount,
+              windowHours: suspicious.windowHours,
+              subnetLabel: suspicious.subnetLabel,
+              names: suspicious.names,
+            }
+          : null,
+      });
     }
-
-    // 8b. ランキング JSON を S3 に書き出し（CloudFront 経由で配信）
-    const publicEntries = stripClientInfo(merged);
-    const leaderboardJson = JSON.stringify(
-      { updatedAt: new Date().toISOString(), entries: publicEntries },
-      null,
-      2
-    );
-
-    await s3.send(
-      new PutObjectCommand({
-        Bucket: SITE_BUCKET,
-        Key: "leaderboard.json",
-        Body: leaderboardJson,
-        ContentType: "application/json",
-        CacheControl: "public, max-age=30",
-      })
-    );
-
-    // 8c. 管理者に自動承認通知メールを送信（アクションボタンなし・情報通知のみ）
-    const emailEntries = merged.map((e) =>
-      e.timestamp === newEntry.timestamp && e.name === newEntry.name
-        ? { ...e, _autoApproved: true }
-        : e
-    );
-    await sendAdminNotification(newEntry, clientInfo, emailEntries, "", "", { autoApproved: true, suspicious });
 
     // 8d. 自動承認済みの更新後ランキングをフロントエンドに返す
     return response(200, {
@@ -991,6 +1127,11 @@ export const handler = async (event) => {
       recordUpdated: false,
       entries: stripClientInfo(entries),
     });
+  }
+
+  // シャドウ対象端末の場合は保存も通知もせず、承認待ちになったように見える応答だけ返す
+  if (shadowed) {
+    return response(200, { qualified: true, pending: true, recordUpdated: true });
   }
 
   // 10. 承認待ちとして DynamoDB に保存（名前単位で1レコード、ベストスコアのみ保持）
