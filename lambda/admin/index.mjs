@@ -608,6 +608,22 @@ export const handler = async (event) => {
     if ((it.entry.timestamp || "") > (keepItem.entry.timestamp || "")) keepItem = it;
   }
   const keepEntry = keepItem.entry;
+
+  // 管理者が承認ボタンを押した名前以外を、新たに掲載することは絶対にしない。
+  // 同じ端末がこの名前より後に別の名前を入力していて、それがまだ承認待ちの場合は、
+  // 何も変更せず、その名前の通知メールから承認するよう案内する
+  // （残す名前が既に掲載済み＝過去に承認済みの場合は、新たな名前は出ないので続行する）
+  if (keepItem.where === "pending" && keepEntry.name !== targetEntry.name) {
+    return htmlResponse(200, "保留",
+      `<div class="icon">✋</div><h1>何も変更していません</h1>` +
+      `<p>自演判定が出ています。同じ端末が <strong>${escapeHtml(targetEntry.name)}</strong> より後に ` +
+      `<strong>${escapeHtml(keepEntry.name)}</strong> を入力しています。</p>` +
+      `<p>残せるのは最後に入力された名前だけです。掲載する場合は ` +
+      `<strong>${escapeHtml(keepEntry.name)}</strong> の通知メールから承認してください。` +
+      `すべて消す場合は、どのメールの削除ボタンでも構いません。</p>`,
+      "#ffc107");
+  }
+
   // 自演グループのうち残さないもの
   const dropped = selfPlay.filter((it) => it.entry !== keepEntry && it.entry.name !== keepEntry.name);
   const droppedLbEntries = new Set(
