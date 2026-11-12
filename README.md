@@ -209,6 +209,15 @@ DynamoDB への書き込みには条件付き書き込み（楽観的ロック�
 
 監査ログをもとに、**類似 IP（同一サブネット。IPv4 は /24、IPv6 は /64）かつ同一 User-Agent** からの送信を集計し、直近 24 時間で **異なる名前が 2 種類以上**使われている場合、名前を変えた自演・連投の疑いとして管理者通知メールで警告します。同一名義での複数回送信（記録更新などの正当な再挑戦）は警告対象外です。警告はスマートフォンの Gmail 一覧で開かずに気付けるよう、**メール件名の先頭**（`🚨要確認(24h内 別名◯件) …`）と**本文の最上部（赤いバナー）**の両方に表示され、該当送信の名前・送信日時（JST）・IP の一覧を添えます。IP または User-Agent が判定できない場合は誤検知を避けるため警告しません。検知の時間窓（既定 24 時間）と名前種類数のしきい値（既定 2 種類）は `SUSPICIOUS_WINDOW_HOURS` / `SUSPICIOUS_THRESHOLD` で調整できます。
 
+**自演判定が出たときの承認・削除**
+
+自演判定が出たエントリには、同じ端末が使った名前の一覧が保存され、通知メールの警告バナーにも承認・削除それぞれの結果が表示されます。
+
+* **掲載承認** — 同じ端末（類似 IP・同一 User-Agent）が使った名前のうち、**最後に入力された名前だけ**を掲載します。それ以外の名前は、承認待ちからも、既に掲載済みのランキングからも削除します。どの名前の通知メールから承認しても結果は同じです。端末のシャドウ登録は行いません。
+* **削除** — 同じ端末が使った名前を、承認待ち・ランキングの両方から**すべて**削除し、送信元の端末をシャドウ対象に登録します（次項参照）。
+
+名前が一致していても、別の端末から送信されたエントリ（同名の正規ユーザー）は対象になりません。
+
 **削除時の一括削除とシャドウ処理**
 
 管理者が「削除」を行うと、対象名義のエントリに加えて、**同じ端末（同一 IP アドレスかつ同一 User-Agent）から直近 7 日以内に送信されたエントリ**を、承認待ち・ランキングの両方から別名義も含めてすべて削除します。IPv4 はアドレスの完全一致、IPv6 は一時アドレスの切り替わりを考慮して /64 単位で一致を判定します。
@@ -313,7 +322,8 @@ aws sts get-caller-identity --profile allstars
         "cloudformation:CreateChangeSet",
         "cloudformation:DescribeChangeSet",
         "cloudformation:ExecuteChangeSet",
-        "cloudformation:DeleteChangeSet"
+        "cloudformation:DeleteChangeSet",
+        "cloudformation:ContinueUpdateRollback"
       ],
       "Resource": [
         "arn:aws:cloudformation:ap-northeast-1:YOUR_ACCOUNT_ID:stack/allstars-*",
@@ -410,6 +420,7 @@ aws sts get-caller-identity --profile allstars
       "Action": [
         "logs:DescribeLogGroups",
         "logs:CreateLogDelivery",
+        "logs:UpdateLogDelivery",
         "logs:DeleteLogDelivery",
         "logs:GetLogDelivery",
         "logs:ListLogDeliveries",

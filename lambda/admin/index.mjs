@@ -71,7 +71,7 @@ function rankEntry(a, b) {
 function stripForPublic(entries) {
   // score 側の stripClientInfo と同じ項目を除去すること
   return entries.map(
-    ({ clientInfo: _ci, id: _id, resultBinary: _rb, correct: _c, ...rest }) => rest
+    ({ clientInfo: _ci, id: _id, resultBinary: _rb, correct: _c, suspiciousNames: _sn, ...rest }) => rest
   );
 }
 
@@ -203,6 +203,80 @@ function clientKey(clientInfo) {
     return `v6:${groups.slice(0, 4).join(":")}|${ua}`;
   }
   return `v4:${addr}|${ua}`;
+}
+
+/**
+ * 類似端末の判定キー（score 側の自演検知と同一基準であること）
+ * - IPv4: 先頭3オクテット（/24）一致
+ * - IPv6: 先頭4グループ（/64）一致
+ * - User-Agent: 完全一致
+ * IP または UA が判定不能な場合は null
+ * @param {object} clientInfo - クライアント情報
+ * @returns {string|null}
+ */
+function similarDeviceKey(clientInfo) {
+  const ua = clientInfo?.userAgent;
+  const ip = clientInfo?.sourceIp;
+  if (typeof ua !== "string" || ua === "" || typeof ip !== "string") return null;
+  const addr = ip.trim().split("%")[0];
+  if (addr === "") return null;
+
+  if (addr.includes(":")) {
+    const groups = expandIpv6(addr);
+    if (!groups) return null;
+    return `v6:${groups.slice(0, 4).join(":")}|${ua}`;
+  }
+  const octets = addr.split(".");
+  if (octets.length !== 4) return null;
+  for (const o of octets) {
+    if (!/^\d{1,3}$/.test(o) || Number(o) > 255) return null;
+  }
+  return `v4:${octets.slice(0, 3).join(".")}|${ua}`;
+}
+
+/**
+ * 自演判定グループ（同一端末が名前を変えて送信したエントリ群）を集める
+ * score 側が自演判定時にエントリへ保存した suspiciousNames（同一端末が使った名前の一覧）を
+ * 手がかりに、起点エントリと同じ類似端末から送信された承認待ち・ランキング上のエントリを返す。
+ * 名前が一致しても別の端末から送信されたエントリ（同名の正規ユーザー）は含めない。
+ * @param {Array} seeds - 起点となるエントリ（承認/削除の対象名義）
+ * @param {object} pendingEntries - 承認待ちエントリのマップ
+ * @param {Array} lbEntries - ランキングエントリ配列
+ * @returns {Array<{where: "pending"|"leaderboard", key: string|null, entry: object}>}
+ *          自演判定に該当しない（名前が1種類以下）場合は空配列
+ */
+function collectSelfPlayGroup(seeds, pendingEntries, lbEntries) {
+  const deviceKeys = new Set(
+    seeds.map((e) => similarDeviceKey(e.clientInfo)).filter(Boolean)
+  );
+  if (deviceKeys.size === 0) return [];
+  const sameDevice = (e) => !!e && deviceKeys.has(similarDeviceKey(e.clientInfo));
+
+  const all = [
+    ...Object.entries(pendingEntries).map(([key, entry]) => ({ where: "pending", key, entry })),
+    ...lbEntries.map((entry) => ({ where: "leaderboard", key: null, entry })),
+  ].filter((it) => it.entry && it.entry.name && sameDevice(it.entry));
+
+  // 起点の名前と、起点の自演判定に列挙された名前
+  const names = new Set();
+  for (const e of seeds) {
+    names.add(e.name);
+    for (const n of e.suspiciousNames || []) names.add(n);
+  }
+  // 起点の名前を自演判定に列挙している同一端末のエントリも同じグループ
+  // （先に届いた未判定のメールから操作された場合でも、後続の判定分を取りこぼさない）
+  const seedNames = new Set(seeds.map((e) => e.name));
+  for (const it of all) {
+    const listed = it.entry.suspiciousNames || [];
+    if (listed.some((n) => seedNames.has(n))) {
+      names.add(it.entry.name);
+      for (const n of listed) names.add(n);
+    }
+  }
+
+  const items = all.filter((it) => names.has(it.entry.name));
+  const distinct = new Set(items.map((it) => it.entry.name));
+  return distinct.size >= 2 ? items : [];
 }
 
 /**
@@ -367,6 +441,26 @@ export const handler = async (event) => {
       }
     }
 
+    // 自演判定グループ（類似端末が名前を変えて送信したエントリ）は期間を問わず全て削除対象
+    // その送信元端末もシャドウ対象に加える
+    const selfPlay = collectSelfPlayGroup(namedTargets, pendingEntries, entries);
+    const selfPlayPendingKeys = new Set(
+      selfPlay.filter((it) => it.where === "pending").map((it) => it.key)
+    );
+    const selfPlayLbEntries = new Set(
+      selfPlay.filter((it) => it.where === "leaderboard").map((it) => it.entry)
+    );
+    for (const it of selfPlay) {
+      const key = clientKey(it.entry.clientInfo);
+      if (key && !devices.has(key)) {
+        devices.set(key, {
+          key,
+          sourceIp: it.entry.clientInfo.sourceIp,
+          userAgent: it.entry.clientInfo.userAgent,
+        });
+      }
+    }
+
     // 同一端末から対象期間内に送信されたエントリかどうか
     const sweepCutoff = new Date(
       Date.now() - SWEEP_WINDOW_DAYS * 24 * 60 * 60 * 1000
@@ -388,7 +482,10 @@ export const handler = async (event) => {
 
     // 3. 承認待ちレコードから該当名義と同一端末のエントリを除去
     const pendingNames = Object.keys(pendingEntries).filter(
-      (k) => (hasPending && k === lookupKey) || isSameDevice(pendingEntries[k])
+      (k) =>
+        (hasPending && k === lookupKey) ||
+        selfPlayPendingKeys.has(k) ||
+        isSameDevice(pendingEntries[k])
     );
     let deletedFromPending = false;
     if (pendingNames.length > 0) {
@@ -401,7 +498,8 @@ export const handler = async (event) => {
     }
 
     // 4. ランキングからも同一名義と同一端末のエントリを削除
-    const isLbTarget = (e) => e.name === targetName || isSameDevice(e);
+    const isLbTarget = (e) =>
+      e.name === targetName || selfPlayLbEntries.has(e) || isSameDevice(e);
     const lbNames = entries.filter(isLbTarget).map((e) => e.name);
     let deletedFromLeaderboard = false;
 
@@ -450,8 +548,8 @@ export const handler = async (event) => {
       ...(deletedFromLeaderboard ? lbNames : []),
     ])].filter((n) => n !== targetName);
     if (sweptNames.length > 0) {
-      deleteMsg += `<p>同じ端末（同一IP・同一UA）から直近 ${SWEEP_WINDOW_DAYS} 日以内に送信された ` +
-        `${sweptNames.length} 件もあわせて削除しました：<br><strong>` +
+      deleteMsg += `<p>同じ端末から送信された ${sweptNames.length} 件` +
+        `（自演判定分、および同一IP・同一UAで直近 ${SWEEP_WINDOW_DAYS} 日以内の分）もあわせて削除しました：<br><strong>` +
         sweptNames.map(escapeHtml).join("、") + `</strong></p>`;
     }
 
@@ -500,10 +598,35 @@ export const handler = async (event) => {
   const entries = lbItem.entries || lbItem.top20 || [];
   const lbVersion = lbItem.version || 0;
 
-  // 2. 同一名義の重複排除
-  //    同じ名前のエントリが既にある場合は除外してから新エントリを追加
-  const entriesWithoutSameName = entries.filter((e) => e.name !== targetEntry.name);
-  const merged = [...entriesWithoutSameName, targetEntry].sort(rankEntry).slice(0, TOP_N);
+  // 2. 掲載するエントリの決定
+  //    通常は承認対象そのもの。自演判定が出ている場合は、同一端末が使った名前のうち
+  //    「最後に入力された名前」だけを残し、他の名前は承認待ち・ランキングから削除する
+  const pendingEntries = pendingsItem.entries || {};
+  const selfPlay = collectSelfPlayGroup([targetEntry], pendingEntries, entries);
+  let keepItem = { where: "pending", key: lookupKey, entry: targetEntry };
+  for (const it of selfPlay) {
+    if ((it.entry.timestamp || "") > (keepItem.entry.timestamp || "")) keepItem = it;
+  }
+  const keepEntry = keepItem.entry;
+  // 自演グループのうち残さないもの
+  const dropped = selfPlay.filter((it) => it.entry !== keepEntry && it.entry.name !== keepEntry.name);
+  const droppedLbEntries = new Set(
+    dropped.filter((it) => it.where === "leaderboard").map((it) => it.entry)
+  );
+  const droppedNames = [...new Set(dropped.map((it) => it.entry.name))];
+  // 承認待ちから取り除くキー：今回の承認対象と、自演グループの承認待ち全部
+  const pendingKeysToRemove = [...new Set([
+    lookupKey,
+    ...selfPlay.filter((it) => it.where === "pending").map((it) => it.key),
+  ])];
+
+  // 同一名義の重複排除：残す名前の既存エントリを除外してから追加
+  // （残す名前が既に掲載済みの場合は、掲載済みのエントリをそのまま残す）
+  const base = entries.filter((e) => !droppedLbEntries.has(e));
+  const merged = (keepItem.where === "pending"
+    ? [...base.filter((e) => e.name !== keepEntry.name), keepEntry]
+    : base
+  ).sort(rankEntry).slice(0, TOP_N);
 
   // 3. ランキングを楽観的ロックで書き込み
   try {
@@ -524,8 +647,8 @@ export const handler = async (event) => {
     throw err;
   }
 
-  // 4. 承認待ちレコードから該当名義を除去
-  await removePendingEntries(pendingsItem, [lookupKey]).catch(() => {
+  // 4. 承認待ちレコードから該当名義（自演判定時は同一端末の全名義）を除去
+  await removePendingEntries(pendingsItem, pendingKeysToRemove).catch(() => {
     // pending の削除失敗は承認処理の成功に影響させない
     console.error("Failed to remove approved entry from pending list");
   });
@@ -533,18 +656,25 @@ export const handler = async (event) => {
   // 5. ランキング JSON を S3 に書き出し（CloudFront 経由で配信）
   await writeLeaderboardJson(merged);
 
-  const timeStr = (targetEntry.totalTimeCs / 100).toFixed(2);
-  const rank = merged.findIndex((e) => e.timestamp === targetEntry.timestamp && e.name === targetEntry.name) + 1;
+  const timeStr = (keepEntry.totalTimeCs / 100).toFixed(2);
+  const rank = merged.findIndex((e) => e.timestamp === keepEntry.timestamp && e.name === keepEntry.name) + 1;
+  // 自演判定時の説明（残した名前と、削除した名前）
+  const selfPlayNote = droppedNames.length > 0
+    ? `<p>自演判定が出ていたため、同じ端末で最後に入力された名前 ` +
+      `<strong>${escapeHtml(keepEntry.name)}</strong> だけを残し、次の ${droppedNames.length} 件を削除しました：<br>` +
+      `<strong>${droppedNames.map(escapeHtml).join("、")}</strong></p>`
+    : "";
   // 承認待ちの間に上位が埋まり、上位 TOP_N 件から外れた場合は掲載されない
   if (rank === 0) {
     return htmlResponse(200, "圏外",
       `<div class="icon">📉</div><h1>ランキング圏外でした</h1>` +
-      `<p><strong>${escapeHtml(targetEntry.name)}</strong>（${timeStr}秒）は承認されましたが、` +
-      `現在の上位 ${TOP_N} 位に入らないため掲載されていません。</p>`,
+      `<p><strong>${escapeHtml(keepEntry.name)}</strong>（${timeStr}秒）は承認されましたが、` +
+      `現在の上位 ${TOP_N} 位に入らないため掲載されていません。</p>` + selfPlayNote,
       "#6c757d");
   }
   return htmlResponse(200, "承認完了",
     `<div class="icon">✅</div><h1>承認しました</h1>` +
-    `<p><strong>${escapeHtml(targetEntry.name)}</strong>（${timeStr}秒）をランキング第 ${rank} 位として掲載しました。</p>`,
+    `<p><strong>${escapeHtml(keepEntry.name)}</strong>（${timeStr}秒）をランキング第 ${rank} 位として掲載しました。</p>` +
+    selfPlayNote,
     "#28a745");
 };

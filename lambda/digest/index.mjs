@@ -163,8 +163,10 @@ export const handler = async () => {
   const last = item.lastReportedAt;
   const sinceIso = last && last > jitterStartIso ? last : windowStartIso;
 
+  // 区間は [since, until)：境界ちょうどの記録は次回のレポートに回す
+  // （今回の読み取り後に同じミリ秒で追記された記録が、どちらの回からも漏れるのを防ぐ）
   const events = (item.events || [])
-    .filter((e) => e && e.approvedAt > sinceIso && e.approvedAt <= untilIso)
+    .filter((e) => e && e.approvedAt >= sinceIso && e.approvedAt < untilIso)
     .sort((a, b) => (a.approvedAt < b.approvedAt ? -1 : 1));
 
   // 対象期間に自動承認が無ければレポートしない

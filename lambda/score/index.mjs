@@ -690,6 +690,10 @@ function buildNotificationHtml(entry, clientInfo, rankEntries, approveUrl, rejec
     （計 ${suspicious.submissionCount} 回）のハイスコア送信を検知しました。
     名前を変えた連投・自演の可能性があるため、掲載前にご確認ください。
   </div>
+  <div style="font-size:14px;line-height:1.7;margin-top:8px;background:#a71d2a;padding:8px 10px;border-radius:6px;">
+    ✅ <strong>掲載承認</strong>：最後に入力された名前「<strong>${escapeHtml(suspicious.names[0] || "")}</strong>」だけを残し、同じ端末の他の名前は削除します。<br>
+    ❌ <strong>削除</strong>：同じ端末の名前をすべて削除し、以後の送信も破棄します。
+  </div>
   ${suspicious.matches.length
         ? `<table style="border-collapse:collapse;width:100%;margin-top:12px;background:#ffffff;color:#333;border-radius:6px;overflow:hidden;font-size:13px;">
     <tr style="background:#f5c2c7;">
@@ -1011,6 +1015,9 @@ export const handler = async (event) => {
     timestamp: new Date().toISOString(),
     // クライアント情報は DynamoDB にのみ保持（公開 JSON には含めない）
     clientInfo,
+    // 自演判定が出た場合、同一端末が使った名前の一覧（新しい順）を保持する
+    // admin 側が「承認＝最後に入力した名前だけ残す／削除＝全部抹消」の対象を決めるのに使う
+    ...(suspicious.flagged ? { suspiciousNames: suspicious.names } : {}),
   };
 
   const merged = [...entriesWithoutSameName, newEntry].sort(rankEntry).slice(0, TOP_N);
@@ -1159,6 +1166,6 @@ export const handler = async (event) => {
  */
 function stripClientInfo(entries) {
   return entries.map(
-    ({ clientInfo: _ci, resultBinary: _rb, correct: _c, ...rest }) => rest
+    ({ clientInfo: _ci, resultBinary: _rb, correct: _c, suspiciousNames: _sn, ...rest }) => rest
   );
 }
