@@ -691,7 +691,8 @@ function buildNotificationHtml(entry, clientInfo, rankEntries, approveUrl, rejec
     名前を変えた連投・自演の可能性があるため、掲載前にご確認ください。
   </div>
   <div style="font-size:14px;line-height:1.7;margin-top:8px;background:#a71d2a;padding:8px 10px;border-radius:6px;">
-    ✅ <strong>掲載承認</strong>：最後に入力された名前「<strong>${escapeHtml(suspicious.names[0] || "")}</strong>」だけを残し、同じ端末の他の名前は削除します。<br>
+    ✅ <strong>掲載承認</strong>：この名前「<strong>${escapeHtml(suspicious.names[0] || "")}</strong>」だけを残し、同じ端末の他の名前は削除します。
+    この後に同じ端末から別の名前が届いていた場合は何も変更されません（その名前のメールから承認してください）。<br>
     ❌ <strong>削除</strong>：同じ端末の名前をすべて削除し、以後の送信も破棄します。
   </div>
   ${suspicious.matches.length
